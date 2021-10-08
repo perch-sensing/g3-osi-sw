@@ -1,0 +1,54 @@
+@startuml sw_diagram
+
+skinparam shadowing false
+
+start
+:configure camera switch with default value 0;
+:configure GPS_SWITCH with default value 0;
+:configure GPS_DIR as INPUT;
+:configure GPS_UART with UART(2);
+:initalize RTC;
+:initalize RTCMemory;
+if (program_step == 0) then (init)
+    :set prog_stp = 1;
+    :set GPS_SWITCH high;
+    :set GPS callback on GPS_DIR rising;
+    :configure temp/humidity sensor;
+    :configure serial number module;
+    :set SLEEP_MODE to time.sleep;
+    :set SLEEP_TIME to 5s;
+
+elseif (program_step == 1) then (waiting)
+    :waiting for GPS to obtain a fix;
+
+elseif (program_step == 2) then (running)
+    :pack latitude, longitude, firmware version, and serial number into struct;
+    :send data over LoRa;
+    :set prog_stp = 3;
+elseif (program_step == 3) then (running)
+    repeat :read humidity;
+    :read temperature;
+    :package data into struct;
+    :send data to LoRa;
+    :enable sleep timer for 2 min;
+    repeat while (enter deep sleep mode)
+endif
+@enduml
+
+@startuml gps_interrupt
+
+skinparam shadowing false
+
+start
+:read GPS line from UART;
+:parse GPS line into standard NMEA message;
+:check that NMEA message type is GPRMC;
+:validate longitude, latitude, date, and time;
+:initalize RTC with current date/time;
+:set program latitude and longitude values;
+:remove GPS IRQ;
+:remove hold on GPS switch;
+:turn GPS switch off;
+:set prog_stp = 2;
+stop
+@enduml
