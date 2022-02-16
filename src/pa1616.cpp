@@ -1,6 +1,11 @@
 #include "pa1616.hpp"
 
-// This is a C implementation (will need to make sure to convert to a C++ implementation)
+/* Open device file for GPS reading
+ *
+ * @param {const char *} devname - name of device file for GPS
+ *
+ * @return {int32_t} File descriptor, or -1 for open error
+ */
 int32_t OpenGPSPort(const char *devname)
 {
 	uint32_t fd;
@@ -47,6 +52,13 @@ int32_t OpenGPSPort(const char *devname)
 	return fd;
 }
 
+/* Obtain fix from GPS
+ *
+ * @param {int32_t} fd - file descriptor of device file
+ * @param {char**} buffer - GPS data container
+ *
+ * @return {int8_t} 0 upon successful data collection, -1 otherwise
+ */
 int8_t obtainFix(int32_t fd, char** buffer) {
 	uint8_t nbytes;
 	if ((nbytes = read(fd, &buffer, sizeof(buffer))) < 0) {
@@ -76,6 +88,12 @@ int8_t obtainFix(int32_t fd, char** buffer) {
 	return 0;
 }
 
+/* Convert hex character into an integer
+ *
+ * @param {char} c - hex character
+ *
+ * @return {int8_t} value of hex character, -1 otherwise
+ */
 int8_t hexchar2int(char c)
 {
     if (c >= '0' && c <= '9')
@@ -87,6 +105,12 @@ int8_t hexchar2int(char c)
     return -1;
 }
 
+/* Convert hex into an integer
+ *
+ * @param {char*} c - character of hex
+ *
+ * @return {int16_t} value of hex, -1 otherwise
+ */
 int16_t hex2int(char *c)
 {
 	uint8_t value;
@@ -104,6 +128,12 @@ int16_t hex2int(char *c)
 	return int16_t(value);
 }
 
+/* Validate checksum from GPS data
+ *
+ * @param {char*} string - GPS data
+ *
+ * @return {int8_t} 0 upon matching checksum, -1 otherwise
+ */
 int8_t checksum_valid(char *string)
 {
 	char *checksum_str;
@@ -116,6 +146,7 @@ int8_t checksum_valid(char *string)
 	if (checksum_str != NULL){
 		// Remove checksum from string
 		*checksum_str = '\0';
+
 		// Calculate checksum, starting after $ (i = 1)
 		for (uint8_t i = 1; i < strlen(string); i++) {
 			calculated_checksum = calculated_checksum ^ string[i];
@@ -139,11 +170,19 @@ int8_t checksum_valid(char *string)
 	return -1;
 }
 
+/* Parse GPS data with comma delimiter
+ *
+ * @param {char*} string - GPS data
+ * @param {char**} fields - data container that holds separate fields of GPS data
+ * @param {uint8_t} max_fields - number of maximum fields within GPS data
+ *
+ * @return {int8_t} number of fields within GPS data
+ */
 uint8_t parse_comma_delimited_str(char *string, char **fields, uint8_t max_fields)
 {
 	uint8_t i = 0;
 	fields[i++] = string;
-
+	
 	while ((i < max_fields) && NULL != (string = strchr(string, ','))) {
 		*string = '\0';
 		fields[i++] = ++string;
@@ -152,12 +191,19 @@ uint8_t parse_comma_delimited_str(char *string, char **fields, uint8_t max_field
 	return --i;
 }
 
+/* Parse GPS time
+ *
+ * @param {char*} date - GPS date
+ * @param {char*} time - GPS time
+ *
+ * @return {int8_t} 0 upon successful time set, -1 otherwise
+ */
 int8_t SetTime(char *date, char *time)
 {
 	struct timespec ts;
 	struct tm * gpstime;
 	time_t secs;
-	char tempbuf[2];
+	char tempbuf[3];
 	int8_t ret;
 
 	gpstime = new tm();
@@ -228,6 +274,13 @@ int8_t SetTime(char *date, char *time)
 	return ret;
 }
 
+/* Print fields of GPS data for debugging purposes
+ *
+ * @param {uint8_t} numfields - number of fields within GPS data 
+ * @param {char**} fields - data container that holds separate fields of GPS data
+ *
+ * @return {void}
+ */
 void debug_print_fields(uint8_t numfields, char **fields)
 {
 	cout << "Parsed " << unsigned(numfields) << " fields" << endl;
@@ -235,4 +288,21 @@ void debug_print_fields(uint8_t numfields, char **fields)
 	for (uint8_t i = 0; i <= numfields; i++) {
 		cout << "Field " << unsigned(i)  << ": " << fields[i] << endl;
 	}
+}
+
+/* Package necessary GPS data for transmission over LoRa
+ *
+ * @param {char*} buffer - GPS data
+ * @param {char**} field - data container that holds separate fields of GPS data
+ * @param {GPSPkg*} data - GPSPkg struct to hold necessary GPS data
+ *
+ * @return {void}
+ */
+void packageGPSData(char *buffer, char **field, GPSPkg* data) {
+	uint8_t i = parse_comma_delimited_str(buffer, field, GPS_PARSED_MSG_NUM_FIELDS);
+
+	sprintf(data->latitude, "%s", field[2]);
+	sprintf(data->longitude, "%s", field[4]);
+
+	debug_print_fields(i,field);
 }
