@@ -22,8 +22,8 @@ using namespace std;
 
 int32_t initialize();
 int32_t open_file();
-int8_t readData(int32_t file, uint8_t** data);
+int8_t readData(int32_t file, uint8_t* data);
 uint8_t CRC8(const uint8_t* data, uint32_t len);
-int8_t processData(int32_t file, uint16_t* temp, float** temp_hum_arr);
+int8_t processData(int32_t file, uint16_t* temp, float* temp_hum_arr);
 
 #endif
