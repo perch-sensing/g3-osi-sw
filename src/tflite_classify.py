@@ -7,37 +7,37 @@ import os
 
 debug = 1
 
-/* Creates a list of labels extracted from a given file
- *
- * @param {str} path - file name of labels file
- *
- * @return {list[str]} List of label strings
- */
+'''Creates a list of labels extracted from a given file
+ 
+   @param {str} path - file name of labels file
+ 
+   @return {list[str]} List of label strings
+'''
 def load_labels(path): # Read the labels from the text file as a Python list.
   with open(path, 'r') as f:
     return [line.strip() for i, line in enumerate(f.readlines())]
 
-/* Assign image data to the input tensor of the model
- *
- * @param {tflite_runtime.interpreter.Interpreter} interpreter - interpreter interface for tflite models
- * @param {PIL.Image}  image - PIL.Image object of image
- * 
- * @return {void}
- */
+'''Assign image data to the input tensor of the model
+
+   @param {tflite_runtime.interpreter.Interpreter} interpreter - interpreter interface for tflite models
+   @param {PIL.Image}  image - PIL.Image object of image
+  
+   @return {void}
+'''
 def set_input_tensor(interpreter, image):
   tensor_index = interpreter.get_input_details()[0]['index']
   input_tensor = interpreter.tensor(tensor_index)()[0]
   input_tensor[:, :] = image
 
-/* Run image through object detection model for classification list
- *
- * @param {tflite_runtime.Interpreter} interpreter - interpreter interface for tflite models
- * @param {PIL.Image} image - PIL.Image object of image
- * @param {int32} top_k - number of top entries of classification list
- * 
- * @return {int32} Identification number for label index within labels list
- * @return {float} Probability of object being accurately classified
- */
+'''Run image through object detection model for classification list
+ 
+   @param {tflite_runtime.Interpreter} interpreter - interpreter interface for tflite models
+   @param {PIL.Image} image - PIL.Image object of image
+   @param {int32} top_k - number of top entries of classification list
+  
+   @return {int32} Identification number for label index within labels list
+   @return {float} Probability of object being accurately classified
+'''
 def classify_image(interpreter, image, top_k=5):
   set_input_tensor(interpreter, image)
 
@@ -62,13 +62,13 @@ def classify_image(interpreter, image, top_k=5):
     prob.append(output[i])
   return label_id, prob
 
-/* Load object detection model
- *
- * @return {tflite_runtime.Interpreter} Interpreter interface for tflite models
- * @return {list[str]} Labels list for object classification
- * @return {int32} Width of input tensor
- * @return {int32) Height of input tensor
- */
+'''Load object detection model
+ 
+   @return {tflite_runtime.Interpreter} Interpreter interface for tflite models
+   @return {list[str]} Labels list for object classification
+   @return {int32} Width of input tensor
+   @return {int32) Height of input tensor
+'''
 def load_model():
 
   data_folder = "/home/pi/MobileNet_v2/"
@@ -90,16 +90,16 @@ def load_model():
 
   return interpreter, labels, width, height
 
-/* Process image through object detection model
- *
- * @param {str} img_name - file name of image
- * @param {tflite_runtime.Interpreter} interpreter - interpreter interface for tflite models
- * @param {list[str]} labels - labels list for object classification
- * @param {int32} width - width of input tensor
- * @param {int32) height - height of input tensor
- * 
- * @return {list[str]} Labels list of detected objects in image
- */
+'''Process image through object detection model
+ 
+   @param {str} img_name - file name of image
+   @param {tflite_runtime.Interpreter} interpreter - interpreter interface for tflite models
+   @param {list[str]} labels - labels list for object classification
+   @param {int32} width - width of input tensor
+   @param {int32) height - height of input tensor
+   
+   @return {list[str]} Labels list of detected objects in image
+'''
 def process_image(img_name, interpreter, labels, width, height):
 
   # Load an image to be classified. Convert RGB-ordered pixel data into BGR-order.

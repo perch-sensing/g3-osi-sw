@@ -1,9 +1,5 @@
 #include "sht30.hpp"
-#include <pybind11/pybind11.h>
-#include <pybind11/iostream.h>
-#include <pybind11/stl.h>
 
-namespace py = pybind11;
 
 PYBIND11_MODULE(sht30, m) {
     m.doc() = "pybind11 sht30 plugin";
@@ -18,22 +14,22 @@ PYBIND11_MODULE(sht30, m) {
  * 
  * @return {int32_t} File descriptor, or -1 for initialization error
  */
-int32_t initialize() {
+int32_t initialize(const char *bus) {
     int32_t file;
 
     // Check if file is open
-    if ((file = open_file()) < 0) {
+    if ((file = open_file(bus)) < 0) {
         return -1;
     }
 
     // Get I2C device
     ioctl(file, I2C_SLAVE, I2C_ADR);
 
-    // Send measurement command (CLK_STRCH_EN)
-    // High repeatability measurement (CLK_STRCH_EN_HIGH)
+    // Measurments per second configuration (CLK_MPS)
+    // High repeatability configuration (CLK_REPEAT_HIGH)
     char config[2] = {0};
-    config[0] = CLK_STRCH_EN;
-    config[1] = CLK_STRCH_EN_HIGH;
+    config[0] = CLK_MPS;
+    config[1] = CLK_REPEAT_HIGH;
 
     if (write(file, config, 2) < 0) {
         if (DEBUG) {
@@ -52,10 +48,10 @@ int32_t initialize() {
  * 
  * @return {int32_t} File descriptor, or -1 for error in opening file
  */
-int32_t open_file() {
+int32_t open_file(const char *bus) {
     int32_t file;
 
-    if ((file = open(BUS, O_RDWR)) < 0) {
+    if ((file = open(bus, O_RDWR)) < 0) {
         if (DEBUG) {
             cout << "SHT30: Could not open device file." << endl;
         }
@@ -79,7 +75,7 @@ int8_t readData(int32_t file, uint8_t* data) {
 	  }
 
     // reset read cursor to start of file for next read
-    lseek(file, 0, SEEK_SET);
+    // lseek(file, 0, SEEK_SET);
 
 		return 0;
 }
@@ -96,9 +92,11 @@ uint8_t CRC8(const uint8_t *data, uint32_t len)
     const uint8_t POLYNOMIAL = 0x31;
     uint8_t crc = 0xFF;
     uint32_t i, j;
-    cout << "data[0]=" << hex << unsigned(data[0]) << endl;
-    cout << "data[1]=" << unsigned(data[1]) << endl;
-    cout << "data[2]=" << unsigned(data[2]) << endl;
+    if (DEBUG) {
+	cout << "data[0]=" << hex << unsigned(data[0]) << endl;
+        cout << "data[1]=" << unsigned(data[1]) << endl;
+        cout << "data[2]=" << unsigned(data[2]) << endl;
+    }
    
     for (i=0; i<len; ++i) 
     {
@@ -120,14 +118,18 @@ uint8_t CRC8(const uint8_t *data, uint32_t len)
  *
  * @param {int32_t} file - file descriptor
  * @param {uint16_t*} temp - pointer to temperature variable
- * @param {float*} temp_hum_arr - pointer to array of Celsius temperature, 
+ * @param {py::object} temp_hum_arr - pointer to array of Celsius temperature, 
  *                                 Fahrenheit temperature, and humidity variable
  * 
  * @return {int8_t} 0 upon successful data collection, otherwise -1
  */
-int8_t processData(int32_t file, uint16_t* temp, float* temp_hum_arr) {
+int8_t processData(int32_t file, py::object temp, py::object temp_hum_arr) {
+    PyObject* tmp = temp.ptr();
+    PyObject* th_arr = temp_hum_arr.ptr();
+    uint16_t tempH = 0;
+    double th_temp_arr[TH_NUM_FIELDS] = {0.0};
     uint8_t data[TH_DATA_SIZE];
-
+    
     if(readData(file, data) < 0) {
         if (DEBUG) {
             cout << "SHT30: Data could not be read." << endl;
@@ -153,10 +155,22 @@ int8_t processData(int32_t file, uint16_t* temp, float* temp_hum_arr) {
     }
 
     // Convert the data
-    *temp = (data[0] * 256 + data[1]);
-    temp_hum_arr[0] = -45 + (175 * (*temp) / 65535.0);
-    temp_hum_arr[1] = -49 + (315 * (*temp) / 65535.0);
-    temp_hum_arr[2] = 100 * (data[3] * 256 + data[4]) / 65535.0;
+    tempH = (data[0] * 256 + data[1]);
+    th_temp_arr[0] = -45 + (175 * (tempH) / 65535.0);
+    th_temp_arr[1] = -49 + (315 * (tempH) / 65535.0);
+    th_temp_arr[2] = 100 * (data[3] * 256 + data[4]) / 65535.0;
+
+    if (PySequence_SetItem(tmp, 0, PyLong_FromLong((long)(tempH))) < 0) {
+	cerr << "SHT30: PyObject for raw temperature data could not be populated." << endl;
+	return -1;
+    }
+
+    for (uint8_t i=0; i<TH_NUM_FIELDS; i++) {
+        if (PySequence_SetItem(th_arr, i, PyFloat_FromDouble(th_temp_arr[i])) < 0) {
+	    cerr << "SHT30: PyObject for data could not be populated."  << endl;
+	    return -1;
+	}
+    }
 
     return 0;
 }
