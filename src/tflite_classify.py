@@ -1,11 +1,11 @@
-
-from tflite_runtime.interpreter import Interpreter 
-from PIL import Image
 import numpy as np
 import time
 import os
+from tflite_runtime.interpreter import Interpreter 
+from PIL import Image
+from typing import *
 
-debug = 1
+DEBUG: int = 1
 
 '''Creates a list of labels extracted from a given file
  
@@ -16,6 +16,7 @@ debug = 1
 def load_labels(path): # Read the labels from the text file as a Python list.
   with open(path, 'r') as f:
     return [line.strip() for i, line in enumerate(f.readlines())]
+
 
 '''Assign image data to the input tensor of the model
 
@@ -28,6 +29,7 @@ def set_input_tensor(interpreter, image):
   tensor_index = interpreter.get_input_details()[0]['index']
   input_tensor = interpreter.tensor(tensor_index)()[0]
   input_tensor[:, :] = image
+
 
 '''Run image through object detection model for classification list
  
@@ -62,6 +64,7 @@ def classify_image(interpreter, image, top_k=5):
     prob.append(output[i])
   return label_id, prob
 
+
 '''Load object detection model
  
    @return {tflite_runtime.Interpreter} Interpreter interface for tflite models
@@ -77,18 +80,19 @@ def load_model():
   label_path = data_folder + "labels.txt"
 
   interpreter = Interpreter(model_path)
-  if debug == 1:
+  if DEBUG:
     print("Model Loaded Successfully.")
 
   interpreter.allocate_tensors()
   _, height, width, _ = interpreter.get_input_details()[0]['shape']
-  if debug == 1:
+  if DEBUG:
     print("Image Shape (", width, ",", height, ")")
  
   # Read class labels.
   labels = load_labels(label_path)
 
   return interpreter, labels, width, height
+
 
 '''Process image through object detection model
  
@@ -100,7 +104,7 @@ def load_model():
    
    @return {list[str]} Labels list of detected objects in image
 '''
-def process_image(img_name, interpreter, labels, width, height):
+def process_image(img_name: str, interpreter, labels: list[str], width: int, height: int) -> list[str]:
 
   # Load an image to be classified. Convert RGB-ordered pixel data into BGR-order.
   image = Image.open("./" + img_name).convert('RGB').resize((width, height))
@@ -115,7 +119,7 @@ def process_image(img_name, interpreter, labels, width, height):
   label_id, prob = classify_image(interpreter, image)
   time2 = time.time()
   classification_time = np.round(time2-time1, 3)
-  if debug == 1:
+  if DEBUG == 1:
     print("Classification Time =", classification_time, "seconds.")
 
   img_labels = []
@@ -123,7 +127,7 @@ def process_image(img_name, interpreter, labels, width, height):
   # Return the classification label of the image.
   for ind in range(len(label_id)):
     classification_label = labels[label_id[ind]]
-    if debug == 1:
+    if DEBUG == 1:
       print("Image Label is:", classification_label, ", with Likeliness:", np.round(prob[ind]*100, 2), "%.")
     img_labels.append(classification_label)
   os.remove(img_name)
