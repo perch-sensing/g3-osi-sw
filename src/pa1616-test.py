@@ -20,6 +20,7 @@ GN_STR: str = "$GN"
 GPS_SW_EN_PIN: int = 35
 GPS_NRESET_PIN: int = 37
 GPS_FIX_PIN: int = 40
+GPS_NUM_READ_ATTEMPTS: int = 3
 FIX_TIMER_COUNTER: int = 32
 FIX_TIMER_BUFFER_MASK: int = 0x000000FF
 
@@ -108,30 +109,25 @@ def main() -> None:
     setMuxSel(GPS_MUX_SEL)
     switchGPSOn()
 
-    buff: list[str] = ["".join('a' for i in range(GPS_MSG_SIZE)) for j in range(2)]
+    buff: list[str]
     fd = pa1616_pyobj.openGPSPort(UART_DEV)
-    if (fd < 0) or (not waitForFix()) or (pa1616_pyobj.obtainFix(fd, buff) < 0):
-        GPS_Valid = 0
-        return -1
-    buffer = buff[0]
-    counter: int = 0
-    empty_buffer: str = "".join('a' for i in range(GPS_MSG_SIZE))
+    if (fd < 0):
+        for i in range(GPS_NUM_READ_ATTEMPTS):
+            buff = ["".join('a' for i in range(GPS_MSG_SIZE)) for j in range(2)]
+            if (not waitForFix()) or (pa1616_pyobj.obtainFix(fd, buff) < 0):
+                continue
+            buffer = buff[0]
+            counter: int = 0
 
-    if True:
-        if DEBUG:
-            print("buffer (python):", buffer)
-        if buffer == empty_buffer:
-            if DEBUG2:
-                print("Empty buffer after obtainFix!")
-            print("PA1616: No communication from GPS module.", file=sys.stderr)
-            GPS_Valid = 0
-        else:
+            if DEBUG:
+                print("buffer (python):", buffer)
+
             if not pa1616_pyobj.checksum_valid(buffer):
                 if (buffer[0:3] == GP_STR) or (buffer[0:3] == GN_STR):
                     if buffer[3:6] == GGA_STR:
                         if (pa1616_pyobj.packageGPSData(buffer, fields, gps) < 0):
                             GPS_Valid = 0
-                            return -1
+                            continue
 
                         if DEBUG:
                             print("UTC Time  :", fields[1].decode('UTF-8'))
@@ -143,24 +139,15 @@ def main() -> None:
                     if buffer[3:6] == RMC_STR:
                         if (pa1616_pyobj.packageGPSData(buffer, fields, gps) < 0):
                             GPS_Valid = 0
-                            return -1
+                            continue
 
                         if DEBUG:
                             print("Speed     :", fields[7].decode('UTF-8'))
                             print("UTC Time  :", fields[1].decode('UTF-8'))
                             print("Date      :", fields[9].decode('UTF-8'))
-                        
+
                         if (pa1616_pyobj.setTime(fields[9].decode('UTF-8'), fields[1].decode('UTF-8')) < 0):
                             GPS_Valid = 0
-                        
-        buff = ["".join('a' for i in range(GPS_MSG_SIZE)) for j in range(2)]
-
-        if (not waitForFix()) or (pa1616_pyobj.obtainFix(fd, buff) < 0):
-            GPS_Valid = 0
-            break
-
-        buffer = buff[0]
-        counter += 1
 
     if pa1616_pyobj.closeGPSPort(fd):
         GPS_Valid = 0
@@ -168,6 +155,5 @@ def main() -> None:
 
     sys.stderr.close()
     sys.stderr = stderr_fileno
-
 
 main()
