@@ -2,9 +2,10 @@ import pa1616_pyobj
 from typing import *
 import sys
 import RPi.GPIO as GPIO
+from time import sleep
 
 DEBUG: int = 1    # print results to console
-DEBUG2: int = 0   # verbose debugging statements
+DEBUG2: int = 1   # verbose debugging statements
 UART_DEV: str = "/dev/ttyAMA0"
 GPS_MSG_SIZE: int = 350
 GPS_PARSED_MSG_NUM_FIELDS: int = 20
@@ -17,10 +18,21 @@ GP_STR: str = "$GP"
 GN_STR: str = "$GN"
 
 GPS_SW_EN_PIN: int = 35
+GPS_NRESET_PIN: int = 37
+GPS_FIX_PIN: int = 40
+FIX_TIMER_COUNTER: int = 32
+FIX_TIMER_BUFFER_MASK: int = 0x000000FF
 
 MUX_SEL_A: int = 26
 MUX_SEL_B: int = 32
 GPS_MUX_SEL: tuple[int, int] = (0, 1)
+
+def GPS_GPIO_Init() -> None:
+    GPIO.setup(GPS_NRESET_PIN, GPIO.OUT)
+    GPIO.setup(GPS_FIX_PIN, GPIO.IN)
+    GPIO.output(GPS_NRESET_PIN, GPIO.LOW)
+    sleep(2)
+    GPIO.output(GPS_NRESET_PIN, GPIO.HIGH)
 
 def switchGPSInit() -> None:
     GPIO.setup(GPS_SW_EN_PIN, GPIO.OUT)
@@ -38,6 +50,19 @@ def muxSelInit() -> None:
 def setMuxSel(sel: tuple[int, int]) -> None:
     GPIO.output(MUX_SEL_B, sel[0])
     GPIO.output(MUX_SEL_A, sel[1])
+
+def waitForFix() -> bool:
+    buffer: int = 0xFFFFFFFF
+    for i in range(FIX_TIMER_COUNTER):
+        readIn = GPIO.input(GPS_FIX_PIN)
+        buffer = (buffer << 1) + readIn
+        print("fix pin:", readIn)
+        if (buffer & FIX_TIMER_BUFFER_MASK) == 0:
+            if DEBUG2:
+                 print("\n\n\nFix obtained!\n\n\n")
+            return True
+    print("PA1616: Fix waiting timeout.", file=stderr)
+    return False
 
 def main() -> None:
     stderr_fileno: int = sys.stderr
@@ -73,8 +98,10 @@ def main() -> None:
         
         if (pa1616_pyobj.setTime(fields[9].decode('UTF-8'), fields[1].decode('UTF-8')) < 0):
             GPS_Valid = 0
-        
+    
+    GPIO.cleanup()    
     GPIO.setmode(GPIO.BOARD)
+    GPS_GPIO_Init()
     switchGPSInit()
     switchGPSOff()
     muxSelInit()
@@ -83,14 +110,14 @@ def main() -> None:
 
     buff: list[str] = ["".join('a' for i in range(GPS_MSG_SIZE)) for j in range(2)]
     fd = pa1616_pyobj.openGPSPort(UART_DEV)
-    if (fd < 0) or (pa1616_pyobj.obtainFix(fd, buff) < 0):
+    if (fd < 0) or (not waitForFix()) or (pa1616_pyobj.obtainFix(fd, buff) < 0):
         GPS_Valid = 0
         return -1
     buffer = buff[0]
     counter: int = 0
     empty_buffer: str = "".join('a' for i in range(GPS_MSG_SIZE))
 
-    while counter < 10:
+    if True:
         if DEBUG:
             print("buffer (python):", buffer)
         if buffer == empty_buffer:
@@ -128,7 +155,7 @@ def main() -> None:
                         
         buff = ["".join('a' for i in range(GPS_MSG_SIZE)) for j in range(2)]
 
-        if pa1616_pyobj.obtainFix(fd, buff):
+        if (not waitForFix()) or (pa1616_pyobj.obtainFix(fd, buff) < 0):
             GPS_Valid = 0
             break
 
