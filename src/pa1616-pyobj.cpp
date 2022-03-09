@@ -64,10 +64,11 @@ int32_t openGPSPort(const char *devname)
 	// Set port attributes
 	tcsetattr(fd, TCSAFLUSH, &options);
 
-	wiringPiSetup();
-	pinMode(FIX_GPIO_PIN, INPUT);
-
 	return fd;
+}
+
+bool validCheck(char c, uint8_t fieldIdx) {
+	return (fieldIdx == GGA_VALID_IDX)?(c == '1'):(c == 'A');
 }
 
 string extractMsg(string buffString) {
@@ -81,14 +82,23 @@ string extractMsg(string buffString) {
 		    (buffString.find("GP", beginIndex) == (beginIndex + 1))) {
 			if (DEBUG)
 			    cout << "GN or GP detected." << endl;
-			if ((buffString.find("GGA", beginIndex) == (beginIndex + 3)) ||
-			    (buffString.find("RMC", beginIndex) == (beginIndex + 3))) {
+                        bool GGA_Flag, RMC_Flag;
+			if ((GGA_Flag = (buffString.find("GGA", beginIndex) == (beginIndex + 3))) ||
+			    (RMC_Flag = (buffString.find("RMC", beginIndex) == (beginIndex + 3)))) {
 				if (DEBUG)
 				    cout << "GGA or RMC detected." << endl;
 				int16_t endIndex;
 				if ((endIndex = buffString.find_first_of(10, beginIndex)) > 0) {
-					uint16_t msgLen = endIndex - beginIndex;
-					return buffString.substr(beginIndex, msgLen);
+                                        uint8_t fieldIdx = GGA_Flag?GGA_VALID_IDX:RMC_VALID_IDX;
+					int16_t iterIdx = beginIndex;
+					for (int i = 0; i < fieldIdx; i++) {
+						iterIdx = buffString.find(',', iterIdx);
+						iterIdx++;
+					}
+					if (validCheck(buffString[iterIdx], fieldIdx)) {
+						uint16_t msgLen = endIndex - beginIndex;
+						return buffString.substr(beginIndex, msgLen);
+					}
 				}
 			}
 		}
@@ -175,8 +185,9 @@ int8_t obtainFix(int32_t fd, py::object buffer) {
 			cerr << "PA1616: PyObject for obtained fix cannot be populated." << endl;
 			return -1;
 		}
+		return 0;
 	}
-	return 0;
+	return -1;
 }
 
 /* Convert hex character into an integer

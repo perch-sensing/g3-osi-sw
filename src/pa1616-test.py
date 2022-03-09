@@ -62,7 +62,7 @@ def waitForFix() -> bool:
             if DEBUG2:
                  print("\n\n\nFix obtained!\n\n\n")
             return True
-    print("PA1616: Fix waiting timeout.", file=stderr)
+    print("PA1616: Fix waiting timeout.", file=sys.stderr)
     return False
 
 def main() -> None:
@@ -111,7 +111,8 @@ def main() -> None:
 
     buff: list[str]
     fd = pa1616_pyobj.openGPSPort(UART_DEV)
-    if (fd < 0):
+    print(fd)
+    if (fd > 0):
         for i in range(GPS_NUM_READ_ATTEMPTS):
             buff = ["".join('a' for i in range(GPS_MSG_SIZE)) for j in range(2)]
             if (not waitForFix()) or (pa1616_pyobj.obtainFix(fd, buff) < 0):

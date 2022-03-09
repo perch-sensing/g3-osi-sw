@@ -9,7 +9,6 @@
 #include <termios.h>
 #include <time.h>
 #include <stdlib.h>
-#include <wiringPi.h>
 #include <chrono>
 #include <thread>
 #include <cstdint>
@@ -23,11 +22,10 @@
 #define PMTK_CMD_COLD_START "$PMTK103*30<CR><LF>"
 #define GPS_MSG_SIZE 350
 #define GPS_PARSED_MSG_NUM_FIELDS 20
-#define FIX_COUNTER 3
-#define FIX_GPIO_PIN 29
-#define FIX_TIMER_COUNTER 3
 #define RMC_DATE_LEN 6
 #define RMC_TIME_LEN 10
+#define GGA_VALID_IDX 6
+#define RMC_VALID_IDX 2
 
 using namespace std;
 namespace py = pybind11;
