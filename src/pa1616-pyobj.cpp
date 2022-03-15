@@ -13,6 +13,8 @@ PYBIND11_MODULE(pa1616_pyobj, m) {
 		m.def("packageGPSData", &packageGPSData, py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>(), "Package necessary GPS data for transmission over LoRa");
 		m.def("setTime", &setTime, py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>(), "Parse GPS time");
 		m.def("closeGPSPort", &closeGPSPort, py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>(), "Close device file");
+		m.def("enableAntenna", &enableAntenna, py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>(), "Send PMTK command to enable GPS external antenna");
+		m.def("disableAntenna", &disableAntenna, py::call_guard<py::scoped_ostream_redirect, py::scoped_estream_redirect>(), "Send PMTK command to disable GPS external antenna");
 }
 
 /* Open device file for GPS reading
@@ -23,7 +25,7 @@ PYBIND11_MODULE(pa1616_pyobj, m) {
  */
 int32_t openGPSPort(const char *devname)
 {
-	uint32_t fd;
+	int32_t fd;
 	struct termios options;
 
 	if ((fd = open(devname, O_RDWR | O_NOCTTY | O_NDELAY)) < 0) {
@@ -42,35 +44,160 @@ int32_t openGPSPort(const char *devname)
 	cfsetospeed(&options, B9600);
 
 	// Set input modes
-  options.c_iflag &= ~(IXON | IXOFF | IXANY);
+	options.c_iflag &= ~(IXON | IXOFF | IXANY);
 	options.c_iflag |= ICRNL;
-  options.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR);
+	options.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR);
 
 	// Set 8 bits, no parity, 1 stop bit
 	options.c_cflag &= ~PARENB;
 	options.c_cflag &= ~CSTOPB;
 	options.c_cflag &= ~CSIZE;
 	options.c_cflag |= CS8;
-  options.c_cflag &= ~CRTSCTS;
-  options.c_cflag |= CREAD | CLOCAL;
+	options.c_cflag &= ~CRTSCTS;
+	options.c_cflag |= CREAD | CLOCAL;
 
 	options.c_lflag &= ~(ECHO|ECHOE|ECHONL);
 	options.c_lflag &= ~ICANON;
-  options.c_lflag &= ~ISIG;
+	options.c_lflag &= ~ISIG;
  
-  options.c_oflag &= ~OPOST;
-  options.c_oflag &= ~ONLCR;
+	options.c_oflag &= ~OPOST;
+	options.c_oflag &= ~ONLCR;
 
 	// Set port attributes
-	tcsetattr(fd, TCSAFLUSH, &options);
+	if (tcsetattr(fd, TCSAFLUSH, &options) != 0) {
+		cerr << "PA1616: Failed to set port attributes." << endl;
+		return -1;
+	}
 
 	return fd;
 }
 
+/* Send PMTK command to enable GPS external antenna
+ *
+ * @param {int32_t} fd - file descriptor
+ *
+ * @return {bool} true if antenna was successfully enabled, false otherwise
+ */
+bool enableAntenna(int32_t fd) {
+	char buff[GPS_MSG_SIZE+1];
+	int16_t nbytes;
+	string buffString;
+	int16_t beginIndex = 0;
+
+	do {
+		if ((nbytes = read(fd, buff, GPS_MSG_SIZE)) < 0) {
+			cerr << "PA1616: Cannot read from GPS." << endl;
+			return false;
+		}
+		if (DEBUG)
+			cout << "nbytes (startup completion message): " << nbytes << endl << endl;
+		else if (nbytes == 0) {
+			cerr << "PA1616: Did not read anything from GPS." << endl;
+			return false;
+		}
+		buff[nbytes] = '\0';
+		buffString = buff;
+		if (DEBUG)
+			cout << "buffString: " << buffString << endl << endl;
+	}
+	while ((beginIndex = buffString.find(PMTK_SYS_MSG, beginIndex)) < 0 && (beginIndex = buffString.find(NMEA_HEADER, beginIndex+1)) < 0);
+
+	if (DEBUG)
+		cout << "beginIndex: " << beginIndex << endl << endl;
+	
+	if ((nbytes = write(fd, PMTK_EN_ANT, strlen(PMTK_EN_ANT))) < 0) {
+		cerr << "PA1616: Cannot write to GPS." << endl;
+		return false;
+	}
+	if (DEBUG)
+		cout << "nbytes (sent enable antenna command): " << nbytes << endl << endl;
+	
+	if ((nbytes = read(fd, buff, GPS_MSG_SIZE)) < 0) {
+		cerr << "PA1616: Cannot read from GPS." << endl;
+                return false;
+        } 
+        else if (nbytes == 0) {
+                cerr << "PA1616: Did not read anything from GPS." << endl;
+                return false;
+        }
+	if (DEBUG)
+		cout << "nbytes (acknowledgement of received command): " << nbytes << endl << endl;
+	
+	beginIndex = 0;
+	buff[nbytes] = '\0';
+	buffString = buff;
+
+	if ((beginIndex = buffString.find(ANTENNA_ACK_HEADER, beginIndex)) < 0) {
+		cerr << "PA1616: Did not receive acknowledgement for command enabling the antenna." << endl;
+		return false;
+	}
+
+	int16_t endIndex;
+	
+	if ((endIndex = buffString.find_first_of(10, beginIndex)) < 0) {
+		cerr <<  "PA1616: Could not parse ANTENNA_ACK packet." << endl;
+		return false;
+	}
+	uint16_t msglen = endIndex - beginIndex;
+	string antenna_ack(buffString.substr(beginIndex, msglen));
+
+	char antennaBuff[GPS_MSG_SIZE];
+	strcpy(antennaBuff, antenna_ack.c_str());
+
+	if (checksum_valid(antennaBuff) < 0) {
+		cerr << "PA1616: Corrupted ANTENNA_ACK packet." << endl;
+		return false;
+	}
+
+	if (DEBUG)
+		cout << "antenna_ack: " << antenna_ack[ANTENNA_ACK_IDX] << endl << endl;
+	
+	if (antenna_ack[ANTENNA_ACK_IDX] == '1') {
+		cerr << "PA1616: WARNING - Using internal antenna." << endl;
+	}
+	else if (antenna_ack[ANTENNA_ACK_IDX] == '3') {
+                cerr << "PA1616: Active antenna shorted." << endl;
+		return false;
+        }
+	
+	return true;
+}
+
+/* Send PMTK command to disable GPS external antenna
+ *
+ * @param {int32_t} fd - file descriptor
+ *
+ * @return {bool} true if antenna was successfully disabled, false otherwise
+ */
+bool disableAntenna(int32_t fd) {
+	char buff[GPS_MSG_SIZE+1] = PMTK_DIS_ANT;
+        int16_t nbytes;
+
+        if ((nbytes = write(fd, buff, strlen(buff))) < 0) {
+                cerr << "PA1616: Cannot write to GPS." << endl;
+                return false;
+        }
+
+	return true;
+}
+
+/* Check if NMEA message contains valid data
+ *
+ * @param {char} c - validity indicator of the message
+ * @param {uint8_t} fieldIdx - index of validity indicator in message
+ *
+ * @return {bool} true if data is valid, false otherwise
+ */
 bool validCheck(char c, uint8_t fieldIdx) {
 	return (fieldIdx == GGA_VALID_IDX)?(c == '1'):(c == 'A');
 }
 
+/* Extract valid NMEA message from the buffer
+ *
+ * @param {string} buffString - string object of the buffer
+ * 
+ * @return {string} valid NMEA message, or empty string if no valid NMEA message
+ */
 string extractMsg(string buffString) {
 	int16_t beginIndex = 0;
 	if (DEBUG)
@@ -183,6 +310,12 @@ int8_t obtainFix(int32_t fd, py::object buffer) {
 	if (extString.size() > 0) {
 		if (PySequence_SetItem(bufferObj, 0, PyUnicode_FromString(extString.c_str())) < 0) {
 			cerr << "PA1616: PyObject for obtained fix cannot be populated." << endl;
+			return -1;
+		}
+		char extSBuff[GPS_MSG_SIZE];
+		strcpy(extSBuff, extString.c_str());
+		if (checksum_valid(extSBuff) < 0) {
+			cerr << "PA1616: Corrupted NMEA message." << endl;
 			return -1;
 		}
 		return 0;

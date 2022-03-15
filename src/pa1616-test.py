@@ -31,6 +31,8 @@ GPS_MUX_SEL: tuple[int, int] = (0, 1)
 def GPS_GPIO_Init() -> None:
     GPIO.setup(GPS_NRESET_PIN, GPIO.OUT)
     GPIO.setup(GPS_FIX_PIN, GPIO.IN)
+
+def GPSReset() -> None:
     GPIO.output(GPS_NRESET_PIN, GPIO.LOW)
     sleep(2)
     GPIO.output(GPS_NRESET_PIN, GPIO.HIGH)
@@ -62,6 +64,7 @@ def waitForFix() -> bool:
             if DEBUG2:
                  print("\n\n\nFix obtained!\n\n\n")
             return True
+        sleep(0.5)
     print("PA1616: Fix waiting timeout.", file=sys.stderr)
     return False
 
@@ -99,61 +102,76 @@ def main() -> None:
         
         if (pa1616_pyobj.setTime(fields[9].decode('UTF-8'), fields[1].decode('UTF-8')) < 0):
             GPS_Valid = 0
-    
-    GPIO.cleanup()    
+        
+    GPIO.setwarnings(False)
     GPIO.setmode(GPIO.BOARD)
     GPS_GPIO_Init()
     switchGPSInit()
-    switchGPSOff()
-    muxSelInit()
-    setMuxSel(GPS_MUX_SEL)
-    switchGPSOn()
+    #switchGPSOff()
+    #muxSelInit()
+    #setMuxSel(GPS_MUX_SEL)
+    #switchGPSOn()
+    #GPSReset()
 
     buff: list[str]
     fd = pa1616_pyobj.openGPSPort(UART_DEV)
+    sleep(60)
+    if (not pa1616_pyobj.enableAntenna(fd)):
+        pa1616_pyobj.closeGPSPort(fd)
+        return -1
+    #sleep(200)
+    '''sys.stderr.close()
+    sys.stderr = stderr_fileno
+    return'''
+
     print(fd)
     if (fd > 0):
         for i in range(GPS_NUM_READ_ATTEMPTS):
             buff = ["".join('a' for i in range(GPS_MSG_SIZE)) for j in range(2)]
-            if (not waitForFix()) or (pa1616_pyobj.obtainFix(fd, buff) < 0):
+            if (pa1616_pyobj.obtainFix(fd, buff) < 0):
                 continue
             buffer = buff[0]
             counter: int = 0
-
+            #(not waitForFix()) or 
             if DEBUG:
                 print("buffer (python):", buffer)
 
-            if not pa1616_pyobj.checksum_valid(buffer):
-                if (buffer[0:3] == GP_STR) or (buffer[0:3] == GN_STR):
-                    if buffer[3:6] == GGA_STR:
-                        if (pa1616_pyobj.packageGPSData(buffer, fields, gps) < 0):
-                            GPS_Valid = 0
-                            continue
+            if (buffer[0:3] == GP_STR) or (buffer[0:3] == GN_STR):
+                if buffer[3:6] == GGA_STR:
+                    if (pa1616_pyobj.packageGPSData(buffer, fields, gps) < 0):
+                        GPS_Valid = 0
+                        continue
 
-                        if DEBUG:
-                            print("UTC Time  :", fields[1].decode('UTF-8'))
-                            print("Latitude  :", gps.latitude)
-                            print("Longitude :", gps.longitude)
-                            print("Altitude  :", fields[9].decode('UTF-8'))
-                            print("Satellites:", fields[7].decode('UTF-8'))
+                    if DEBUG:
+                        print("UTC Time  :", fields[1].decode('UTF-8'))
+                        print("Latitude  :", gps.latitude)
+                        print("Longitude :", gps.longitude)
+                        print("Altitude  :", fields[9].decode('UTF-8'))
+                        print("Satellites:", fields[7].decode('UTF-8'))
 
-                    if buffer[3:6] == RMC_STR:
-                        if (pa1616_pyobj.packageGPSData(buffer, fields, gps) < 0):
-                            GPS_Valid = 0
-                            continue
+                if buffer[3:6] == RMC_STR:
+                    if (pa1616_pyobj.packageGPSData(buffer, fields, gps) < 0):
+                        GPS_Valid = 0
+                        continue
 
-                        if DEBUG:
-                            print("Speed     :", fields[7].decode('UTF-8'))
-                            print("UTC Time  :", fields[1].decode('UTF-8'))
-                            print("Date      :", fields[9].decode('UTF-8'))
+                    if DEBUG:
+                        print("Speed     :", fields[7].decode('UTF-8'))
+                        print("UTC Time  :", fields[1].decode('UTF-8'))
+                        print("Date      :", fields[9].decode('UTF-8'))
 
-                        if (pa1616_pyobj.setTime(fields[9].decode('UTF-8'), fields[1].decode('UTF-8')) < 0):
-                            GPS_Valid = 0
+                    if (pa1616_pyobj.setTime(fields[9].decode('UTF-8'), fields[1].decode('UTF-8')) < 0):
+                        GPS_Valid = 0
+
+    if pa1616_pyobj.disableAntenna(fd):
+        pa1616_pyobj.closeGPSPort(fd)
+        return -1
 
     if pa1616_pyobj.closeGPSPort(fd):
         GPS_Valid = 0
         return -1
-
+    
+    #switchGPSOff()
+    #GPIO.cleanup()
     sys.stderr.close()
     sys.stderr = stderr_fileno
 

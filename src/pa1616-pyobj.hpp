@@ -19,13 +19,19 @@
 
 #define DEBUG 1
 #define UART_DEV "/dev/ttyAMA0"
-#define PMTK_CMD_COLD_START "$PMTK103*30<CR><LF>"
+#define PMTK_CMD_COLD_START "$PMTK103*30\r\n"
 #define GPS_MSG_SIZE 350
 #define GPS_PARSED_MSG_NUM_FIELDS 20
 #define RMC_DATE_LEN 6
 #define RMC_TIME_LEN 10
 #define GGA_VALID_IDX 6
 #define RMC_VALID_IDX 2
+#define PMTK_SYS_MSG "$PMTK010,002*2D\r\n"
+#define NMEA_HEADER "$G"
+#define PMTK_EN_ANT "$CDCMD,33,1*7C\r\n"
+#define PMTK_DIS_ANT "$CDCMD,33,0*7D\r\n"
+#define ANTENNA_ACK_HEADER "$PCD,11,"
+#define ANTENNA_ACK_IDX 8
 
 using namespace std;
 namespace py = pybind11;
@@ -37,6 +43,10 @@ typedef struct GPSPkg {
 
 int8_t hexchar2int(char c);
 int16_t hex2int(char *c);
+bool enableAntenna(int32_t fd);
+bool disableAntenna(int32_t fd);
+bool validCheck(char c, uint8_t fieldIdx);
+string extractMsg(string buffString);
 int8_t checksum_valid(char *s);
 int8_t parse_comma_delimited_str(char *s, py::object field, uint8_t max_fields);
 int32_t openGPSPort(const char *devname);
