@@ -97,6 +97,7 @@ bool enableAntenna(int32_t fd) {
 	int16_t nbytes;
 	string buffString;
 	int16_t beginIndex = 0;
+	string antenna_ack;
 
 	do {
 		GPSReadWait(fd);
@@ -127,6 +128,8 @@ bool enableAntenna(int32_t fd) {
 	if (DEBUG)
 		cout << "nbytes (sent enable antenna command): " << nbytes << endl << endl;
 	
+	uint8_t ant_ack_read = 0;
+	for (int i = 0; i < 3; i++) {
 	GPSReadWait(fd);	
 	if ((nbytes = read(fd, buff, GPS_MSG_SIZE)) < 0) {
 		cerr << "PA1616: Cannot read from GPS." << endl;
@@ -145,23 +148,31 @@ bool enableAntenna(int32_t fd) {
 
 	if ((beginIndex = buffString.find(ANTENNA_ACK_HEADER, beginIndex)) < 0) {
 		cerr << "PA1616: Did not receive acknowledgement for command enabling the antenna." << endl;
-		return false;
+		continue;
 	}
 
 	int16_t endIndex;
 	
 	if ((endIndex = buffString.find_first_of(10, beginIndex)) < 0) {
 		cerr <<  "PA1616: Could not parse ANTENNA_ACK packet." << endl;
-		return false;
+		continue;
 	}
 	uint16_t msglen = endIndex - beginIndex;
-	string antenna_ack(buffString.substr(beginIndex, msglen));
+	antenna_ack = buffString.substr(beginIndex, msglen);
 
 	char antennaBuff[GPS_MSG_SIZE];
 	strcpy(antennaBuff, antenna_ack.c_str());
 
 	if (checksum_valid(antennaBuff) < 0) {
 		cerr << "PA1616: Corrupted ANTENNA_ACK packet." << endl;
+		continue;
+	}
+	ant_ack_read = 1;
+	break;
+	}
+
+	if (!ant_ack_read) {
+		cerr <<  "PA1616: Could not parse ANTENNA_ACK packet." << endl;
 		return false;
 	}
 
@@ -453,6 +464,8 @@ int8_t setTime(char* date, char* time)
 
 	ts.tv_sec = mktime(gpstime);
 	// Apply GMT offset to correct for timezone
+	if (DEBUG)
+		cout << "gpstime->tm_gmtoff: " << gpstime->tm_gmtoff << endl;		
 	ts.tv_sec += gpstime->tm_gmtoff;
 
 	if (DEBUG)
@@ -460,8 +473,14 @@ int8_t setTime(char* date, char* time)
 
 	ts.tv_nsec = 0;
 	ret = clock_settime(CLOCK_REALTIME, &ts);
-	if (ret)
+	if (DEBUG)
+		cout << "errno (clock_settime): " << errno << endl;
+	if (ret) {
 		cerr << "PA1616: System clock could not be set." << endl;
+		if (DEBUG) {
+			cout << "ret: " << ret << endl;
+		}
+	}
 
 	if (DEBUG) {
 			clock_gettime(CLOCK_REALTIME, &ts);

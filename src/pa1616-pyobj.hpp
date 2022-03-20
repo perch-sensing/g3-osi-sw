@@ -18,7 +18,7 @@
 #include <pybind11/iostream.h>
 #include <pybind11/stl.h>
 
-#define DEBUG 0
+#define DEBUG 1
 #define UART_DEV "/dev/ttyAMA0"
 #define PMTK_CMD_COLD_START "$PMTK103*30\r\n"
 #define GPS_MSG_SIZE 350
