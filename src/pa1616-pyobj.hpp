@@ -13,11 +13,12 @@
 #include <thread>
 #include <cstdint>
 #include <string>
+#include <sys/ioctl.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/iostream.h>
 #include <pybind11/stl.h>
 
-#define DEBUG 1
+#define DEBUG 0
 #define UART_DEV "/dev/ttyAMA0"
 #define PMTK_CMD_COLD_START "$PMTK103*30\r\n"
 #define GPS_MSG_SIZE 350
@@ -26,6 +27,8 @@
 #define RMC_TIME_LEN 10
 #define GGA_VALID_IDX 6
 #define RMC_VALID_IDX 2
+#define GGA_PARSED_FLAG 0
+#define RMC_PARSED_FLAG 1
 #define PMTK_SYS_MSG "$PMTK010,002*2D\r\n"
 #define NMEA_HEADER "$G"
 #define PMTK_EN_ANT "$CDCMD,33,1*7C\r\n"
@@ -45,13 +48,11 @@ int8_t hexchar2int(char c);
 int16_t hex2int(char *c);
 bool enableAntenna(int32_t fd);
 bool disableAntenna(int32_t fd);
-bool validCheck(char c, uint8_t fieldIdx);
-string extractMsg(string buffString);
 int8_t checksum_valid(char *s);
 int8_t parse_comma_delimited_str(char *s, py::object field, uint8_t max_fields);
 int32_t openGPSPort(const char *devname);
 int8_t obtainFix(int32_t fd, py::object buffer);
-int8_t packageGPSData(char *buffer, py::object fields, GPSPkg& data);
+int8_t packageGPSData(char *buffer, py::object fields, GPSPkg& data, int32_t lat_idx, int32_t lon_idx);
 int8_t setTime(char* date, char* time);
 void debug_print_fields(uint8_t numfields, py::object fields);
 int8_t closeGPSPort(int32_t fd);
