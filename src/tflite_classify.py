@@ -7,6 +7,9 @@ from typing import *
 
 DEBUG: int = 1
 TOP_K: int = 5
+DATA_FOLDER: str = "/home/pi/MobileNet_v2/"
+MODEL_FILE: str = "mobilenet_v2_1.0_224_quantized_1_metadata_1.tflite"
+LABEL_FILE: str = "labels.txt"
 
 '''Creates a list of labels extracted from a given file
  
@@ -14,7 +17,8 @@ TOP_K: int = 5
  
    @return {list[str]} List of label strings
 '''
-def load_labels(path: str) -> list[str]: # Read the labels from the text file as a Python list.
+def load_labels(path: str) -> list[str]:
+  # Read the labels from the text file as a Python list.
   with open(path, 'r') as f:
     return [line.strip() for i, line in enumerate(f.readlines())]
 
@@ -41,9 +45,11 @@ def set_input_tensor(interpreter: Type[Interpreter], image: Type[Image]) -> None
    @return {int} Identification number for label index within labels list
    @return {float} Probability of object being accurately classified
 '''
-def classify_image(interpreter: Type[interpreter], image: Type[Image], top_k: int) -> tuple[int, float]:
+def classify_image(interpreter: Type[interpreter], image: Type[Image], top_k: int) -> tuple[list[int], list[float]]:
+  # Set image as input tensor
   set_input_tensor(interpreter, image)
 
+  # Process image through tflite model and get output details
   interpreter.invoke()
   output_details = interpreter.get_output_details()[0]
   output = np.squeeze(interpreter.get_tensor(output_details['index']))
@@ -57,6 +63,7 @@ def classify_image(interpreter: Type[interpreter], image: Type[Image], top_k: in
   sum_exponentials = sum(exponentials)
   output = exponentials/sum_exponentials
 
+  # Obtain the ordered classification list based on highest confidence values
   ordered = np.argsort(-output)
   label_id = []
   prob = []
@@ -74,11 +81,10 @@ def classify_image(interpreter: Type[interpreter], image: Type[Image], top_k: in
    @return {int) Height of input tensor
 '''
 def load_model() -> tuple[Type[Interpreter], list[str], int, int]:
+  data_folder = DATA_FOLDER
 
-  data_folder = "/home/pi/MobileNet_v2/"
-
-  model_path = data_folder + "mobilenet_v2_1.0_224_quantized_1_metadata_1.tflite"
-  label_path = data_folder + "labels.txt"
+  model_path = data_folder + MODEL_FILE
+  label_path = data_folder + LABEL_FILE
 
   interpreter = Interpreter(model_path)
   if DEBUG:
@@ -106,7 +112,6 @@ def load_model() -> tuple[Type[Interpreter], list[str], int, int]:
    @return {list[str]} Labels list of detected objects in image
 '''
 def process_image(img_name: str, interpreter: Type[Interpreter], labels: list[str], width: int, height: int) -> list[str]:
-
   # Load an image to be classified. Convert RGB-ordered pixel data into BGR-order.
   image = Image.open("./" + img_name).convert('RGB').resize((width, height))
   container = list(image.getdata())

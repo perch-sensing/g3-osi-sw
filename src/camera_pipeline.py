@@ -9,7 +9,7 @@ from tflite_classify import *
 def classification_pipeline() -> list[str]:
   interpreter, labels, width, height = load_model()
   label_list = process_image(captureImage(), interpreter, labels, width, height)
-  if debug == 1:
+  if DEBUG == 1:
     for label in  label_list:
       print(label)
   return label_list

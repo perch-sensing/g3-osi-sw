@@ -43,6 +43,38 @@ def setMuxSel(sel: tuple[int, int]) -> None:
     GPIO.output(MUX_SEL_A, sel[1])
 
 
+'''Create a command
+
+   @param {str} comm - command type
+   @param {Type[bytes]) *args - command arguments in bytes
+ 
+   @return {Type[bytes]} command in bytes
+'''
+def command(comm: str, *args: Type[bytes]) -> Type[bytes]:
+    fullCom_str: str = COMM_HEADER
+
+    # append command
+    if comm != "":
+        fullCom_str = fullCom_str + "+" + comm
+
+    # convert command into bytes object
+    fullCom: Type[bytes] = bytes(fullCom_str, "UTF-8")
+
+    # append arguments to the command
+    if len(args) > 0:
+        fullCom = fullCom + bytes("=", "UTF-8") + args[0]
+        for i in range(1, len(args)):
+            fullCom = fullCom + bytes(" ", "UTF-8") + args[i]
+
+    # append carriage return and newline characters
+    fullCom += bytes(COMM_END, "UTF-8")
+
+    if DEBUG:
+        print(fullCom)
+
+    return fullCom
+
+
 '''Write command to serial port (helper function)
 
    @param {Type[Serial]} serialPort - serial port for LoRa module
@@ -50,7 +82,7 @@ def setMuxSel(sel: tuple[int, int]) -> None:
  
    @return {None}	
 '''
-def init_helper(serialPort: Type[Serial], comm_bytes) -> None:
+def init_helper(serialPort: Type[Serial], comm_bytes: Type[bytes]) -> None:
     serialPort.write(comm_bytes)
     serialPort.flush()
 
@@ -92,38 +124,6 @@ def init_LoRa(dev_name: str) -> Type[Serial]:
         print("LoRa-E5: Could not issue command to module.", file=sys.stderr)
 
     return serialPort
-
-
-'''Create a command
-
-   @param {str} comm - command type
-   @param {Type[bytes]) *args - command arguments in bytes
- 
-   @return {Type[bytes]} command in bytes
-'''
-def command(comm: str, *args: Type[bytes]) -> Type[bytes]:
-    fullCom_str: str = COMM_HEADER
-
-    # append command
-    if comm != "":
-        fullCom_str = fullCom_str + "+" + comm
-
-    # convert command into bytes object
-    fullCom: Type[bytes] = bytes(fullCom_str, "UTF-8")
-
-    # append arguments to the command
-    if len(args) > 0:
-        fullCom = fullCom + bytes("=", "UTF-8") + args[0]
-        for i in range(1, len(args)):
-            fullCom = fullCom + bytes(" ", "UTF-8") + args[i]
-
-    # append carriage return and newline characters
-    fullCom += bytes(COMM_END, "UTF-8")
-
-    if DEBUG:
-        print(fullCom)
-
-    return fullCom
 
 
 '''Receive data over LoRa
@@ -210,10 +210,12 @@ def pack_data(data_format: str, args: list[str]) -> Type[bytes]:
 
 
 '''Wake up LoRa module
+
+   @param {Type[Serial]) serialPort - serial port for LoRa module
  
    @return {int} number of bytes written
 '''
-def awake_LoRa() -> int:
+def awake_LoRa(serialPort: Type[Serial]) -> int:
     try:
         sent_data: int = serialPort.write(b"\xff\xff\xff\xff" + command("LOWPOWER", bytes("AUTOOFF", "UTF-8")))
         serialPort.flush()
@@ -223,11 +225,13 @@ def awake_LoRa() -> int:
     return sent_data
 
 
-'''Put LoRa module to sleep
+'''Put LoRa module under low power mode
  
+   @param {Type[Serial]) serialPort - serial port for LoRa module
+
    @return {int} number of bytes written
 '''
-def sleep_LoRa() -> int:
+def sleep_LoRa(serialPort: Type[Serial]) -> int:
     try:
         sent_data: int = serialPort.write(command("LOWPOWER", bytes("AUTOON", "UTF-8")))
         serialPort.flush()

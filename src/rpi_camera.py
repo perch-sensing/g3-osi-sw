@@ -2,7 +2,8 @@
 from time import sleep
 from picamera import PiCamera
 from typing import * 
-image_name = 'img.jpg'
+
+image_name: str = 'img.jpg'
 
 '''Captures image and saves it into a file
  
