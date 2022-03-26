@@ -35,6 +35,8 @@
 #define PMTK_DIS_ANT "$CDCMD,33,0*7D\r\n"
 #define ANTENNA_ACK_HEADER "$PCD,11,"
 #define ANTENNA_ACK_IDX 8
+#define ANT_TYPE_INT_ANT '1'
+#define ANT_TYPE_SHORTED '3'
 
 using namespace std;
 namespace py = pybind11;
@@ -46,6 +48,8 @@ typedef struct GPSPkg {
 
 int8_t hexchar2int(char c);
 int16_t hex2int(char *c);
+string extractAntMsg(string buffString);
+bool checkAntAckType(string antenna_ack);
 bool enableAntenna(int32_t fd);
 bool disableAntenna(int32_t fd);
 int8_t checksum_valid(char *s);

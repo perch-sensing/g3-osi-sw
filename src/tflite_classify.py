@@ -6,6 +6,7 @@ from PIL import Image
 from typing import *
 
 DEBUG: int = 1
+TOP_K: int = 5
 
 '''Creates a list of labels extracted from a given file
  
@@ -13,19 +14,19 @@ DEBUG: int = 1
  
    @return {list[str]} List of label strings
 '''
-def load_labels(path): # Read the labels from the text file as a Python list.
+def load_labels(path: str) -> list[str]: # Read the labels from the text file as a Python list.
   with open(path, 'r') as f:
     return [line.strip() for i, line in enumerate(f.readlines())]
 
 
 '''Assign image data to the input tensor of the model
 
-   @param {tflite_runtime.interpreter.Interpreter} interpreter - interpreter interface for tflite models
-   @param {PIL.Image}  image - PIL.Image object of image
+   @param {Type[Interpreter]} interpreter - interpreter interface for tflite models
+   @param {Type[Image]}  image - PIL.Image object of image
   
    @return {void}
 '''
-def set_input_tensor(interpreter, image):
+def set_input_tensor(interpreter: Type[Interpreter], image: Type[Image]) -> None:
   tensor_index = interpreter.get_input_details()[0]['index']
   input_tensor = interpreter.tensor(tensor_index)()[0]
   input_tensor[:, :] = image
@@ -33,14 +34,14 @@ def set_input_tensor(interpreter, image):
 
 '''Run image through object detection model for classification list
  
-   @param {tflite_runtime.Interpreter} interpreter - interpreter interface for tflite models
-   @param {PIL.Image} image - PIL.Image object of image
-   @param {int32} top_k - number of top entries of classification list
+   @param {Type[Interpreter]} interpreter - interpreter interface for tflite models
+   @param {Type[Image]} image - PIL.Image object of image
+   @param {int} top_k - number of top entries of classification list
   
-   @return {int32} Identification number for label index within labels list
+   @return {int} Identification number for label index within labels list
    @return {float} Probability of object being accurately classified
 '''
-def classify_image(interpreter, image, top_k=5):
+def classify_image(interpreter: Type[interpreter], image: Type[Image], top_k: int) -> tuple[int, float]:
   set_input_tensor(interpreter, image)
 
   interpreter.invoke()
@@ -67,12 +68,12 @@ def classify_image(interpreter, image, top_k=5):
 
 '''Load object detection model
  
-   @return {tflite_runtime.Interpreter} Interpreter interface for tflite models
+   @return {Type[Interpreter]} Interpreter interface for tflite models
    @return {list[str]} Labels list for object classification
-   @return {int32} Width of input tensor
-   @return {int32) Height of input tensor
+   @return {int} Width of input tensor
+   @return {int) Height of input tensor
 '''
-def load_model():
+def load_model() -> tuple[Type[Interpreter], list[str], int, int]:
 
   data_folder = "/home/pi/MobileNet_v2/"
 
@@ -97,14 +98,14 @@ def load_model():
 '''Process image through object detection model
  
    @param {str} img_name - file name of image
-   @param {tflite_runtime.Interpreter} interpreter - interpreter interface for tflite models
+   @param {Type[Interpreter]} interpreter - interpreter interface for tflite models
    @param {list[str]} labels - labels list for object classification
-   @param {int32} width - width of input tensor
-   @param {int32) height - height of input tensor
+   @param {int} width - width of input tensor
+   @param {int) height - height of input tensor
    
    @return {list[str]} Labels list of detected objects in image
 '''
-def process_image(img_name: str, interpreter, labels: list[str], width: int, height: int) -> list[str]:
+def process_image(img_name: str, interpreter: Type[Interpreter], labels: list[str], width: int, height: int) -> list[str]:
 
   # Load an image to be classified. Convert RGB-ordered pixel data into BGR-order.
   image = Image.open("./" + img_name).convert('RGB').resize((width, height))
@@ -116,7 +117,7 @@ def process_image(img_name: str, interpreter, labels: list[str], width: int, hei
 
   # Classify the image.
   time1 = time.time()
-  label_id, prob = classify_image(interpreter, image)
+  label_id, prob = classify_image(interpreter, image, TOP_K)
   time2 = time.time()
   classification_time = np.round(time2-time1, 3)
   if DEBUG == 1:

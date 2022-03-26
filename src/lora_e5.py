@@ -23,22 +23,48 @@ COMM_HEADER: str = "AT"
 COMM_END: str = "\r\n"
 DEV_NAME: str = "/dev/ttyAMA0"
 
+'''Initialize mux select
+ 
+   @return {None}	
+'''
 def muxSelInit() -> None:
     GPIO.setup(MUX_SEL_A, GPIO.OUT)
     GPIO.setup(MUX_SEL_B, GPIO.OUT)
 
+
+'''Set mux select
+
+   @param {tuple[int, int]} sel - mux select configuration
+ 
+   @return {None}	
+'''
 def setMuxSel(sel: tuple[int, int]) -> None:
     GPIO.output(MUX_SEL_B, sel[0])
     GPIO.output(MUX_SEL_A, sel[1])
 
-def init_helper(serialPort, comm_bytes) -> None:
+
+'''Write command to serial port (helper function)
+
+   @param {Type[Serial]} serialPort - serial port for LoRa module
+   @param {Type[bytes]) comm_bytes - command in bytes
+ 
+   @return {None}	
+'''
+def init_helper(serialPort: Type[Serial], comm_bytes) -> None:
     serialPort.write(comm_bytes)
     serialPort.flush()
 
     if DEBUG:
         print(recv_LoRa(serialPort))
 
-def init_LoRa(dev_name: str):
+
+'''Initialize LoRa
+
+   @param {str} dev_name - name of device file for LoRa module
+ 
+   @return {Type[Serial]} serial port for LoRa module
+'''
+def init_LoRa(dev_name: str) -> Type[Serial]:
     GPIO.setup(LORA_RESET, GPIO.OUT) 
     GPIO.setup(LORA_BOOT, GPIO.OUT)
 
@@ -52,7 +78,7 @@ def init_LoRa(dev_name: str):
     GPIO.output(LORA_RESET, GPIO.HIGH)
 
     # open serial port
-    serialPort = serial.Serial(dev_name, BAUD_RATE, timeout=5)
+    serialPort: Type[Serial] = Serial(dev_name, BAUD_RATE, timeout=5)
     if DEBUG:
         print("Opened serial port")
 
@@ -62,20 +88,28 @@ def init_LoRa(dev_name: str):
         init_helper(serialPort, command("DR", DATA_RATE))
         init_helper(serialPort, command("CH", CHANNELS))  
         init_helper(serialPort, command("PORT", bytes(PORT_NUM, "UTF-8")))
-    except serial.SerialTimeoutException as e:
+    except SerialTimeoutException as e:
         print("LoRa-E5: Could not issue command to module.", file=sys.stderr)
 
     return serialPort
 
-def command(comm, *args):
-    fullCom = COMM_HEADER
+
+'''Create a command
+
+   @param {str} comm - command type
+   @param {Type[bytes]) *args - command arguments in bytes
+ 
+   @return {Type[bytes]} command in bytes
+'''
+def command(comm: str, *args: Type[bytes]) -> Type[bytes]:
+    fullCom_str: str = COMM_HEADER
 
     # append command
     if comm != "":
-        fullCom = fullCom + "+" + comm
+        fullCom_str = fullCom_str + "+" + comm
 
     # convert command into bytes object
-    fullCom = bytes(fullCom, "UTF-8")
+    fullCom: Type[bytes] = bytes(fullCom_str, "UTF-8")
 
     # append arguments to the command
     if len(args) > 0:
@@ -91,64 +125,52 @@ def command(comm, *args):
 
     return fullCom
 
-def recv_LoRa(serialPort):
+
+'''Receive data over LoRa
+
+   @param {Type[Serial]) serialPort - serial port for LoRa module
+ 
+   @return {str} received data
+'''
+def recv_LoRa(serialPort: Type[Serial]) -> str:
     try:
         # read serial port
-        received_data = serialPort.read_until(expected='', size=BUFF_SIZE).decode("UTF-8")
+        received_data: str = serialPort.read_until(expected='', size=BUFF_SIZE).decode("UTF-8")
         sleep(0.03)
 
         # check for remaining byte
-        data_left = serialPort.inWaiting()
+        data_left: int = serialPort.inWaiting()
         received_data += serialPort.read(data_left).decode("UTF-8")
-    except serial.SerialException as e:
+    except SerialException as e:
         print("LoRa-E5: Could not receive response from module.", file=sys.stderr)
 
     return received_data
 
-def send_LoRa(nodeData, serialPort):
+
+'''Send data over LoRa
+
+   @param {Type[bytes]) nodeDate - data collected from active sensing modules
+   @param {Type[Serial]) serialPort - serial port for LoRa module
+ 
+   @return {int} number of bytes written
+'''
+def send_LoRa(nodeData: Type[bytes], serialPort: Type[Serial]) -> int:
     try:
         # send data
-        sent_data = serialPort.write(command("MSG", nodeData))
+        sent_data: int = serialPort.write(command("MSG", nodeData))
         serialPort.flush()
-    except serial.SerialTimeoutException as e:
+    except SerialTimeoutException as e:
         print("LoRa-E5: Could not send data to module.", file=sys.stderr)
 
     return sent_data
 
-def pack_data(data_format: str, args: list[Any]):
-    # tempRaw, tempC, tempF, hum, classification
-    # create struct to hold data for LoRa transmission
-    byteStream = struct.pack(data_format, *(bytes(args[i], "UTF-8") for i in range(len(args))))
 
-    if DEBUG:
-        print(struct.unpack(data_format, byteStream))
+'''Create data format string
 
-    # put converted data between quotations marks
-    nodeData = bytes("\"", "UTF-8") + byteStream + bytes("\"", "UTF-8")
-
-    if DEBUG:
-        print(struct.unpack(data_format, byteStream))
-
-    return nodeData
-
-def awake_LoRa():
-    try:
-        sent_data = serialPort.write(b"\xff\xff\xff\xff" + command("LOWPOWER", bytes("AUTOOFF", "UTF-8")))
-        serialPort.flush()
-    except serial.SerialTimeoutException as e:
-        print("LoRa-E5: Could not exit deep sleep mode.", file=sys.stderr)
-
-    return sent_data
-
-def sleep_LoRa():
-    try:
-        sent_data = serialPort.write(command("LOWPOWER", bytes("AUTOON", "UTF-8")))
-        serialPort.flush()
-    except serial.SerialTimeoutException as e:
-        print("LoRa-E5: Could not enter deep sleep mode.", file=sys.stderr)
-
-    return sent_data
-
+   @param {list[str]} args - list of data collected from active sensing modules
+ 
+   @return {str} data format string
+'''
 def create_data_format_str(args: list[str]) -> str:
     data_format_str: str = ""
 
@@ -161,3 +183,55 @@ def create_data_format_str(args: list[str]) -> str:
         data_format_str += (" " + str(len(args[i])) + "s")
 
     return data_format_str
+
+
+'''Pack data collected from active sensing modules
+
+   @param {str) data_format - format string of how data will be packed
+   @param {list[str]) args - list of data collected from active sensing modules
+ 
+   @return {Type[bytes]} packed data in bytes
+'''
+def pack_data(data_format: str, args: list[str]) -> Type[bytes]:
+    # tempRaw, tempC, tempF, hum, classification
+    # create struct to hold data for LoRa transmission
+    byteStream: Type[bytes] = struct.pack(data_format, *(bytes(args[i], "UTF-8") for i in range(len(args))))
+
+    if DEBUG:
+        print(struct.unpack(data_format, byteStream))
+
+    # put converted data between quotations marks
+    nodeData: Type[bytes] = bytes("\"", "UTF-8") + byteStream + bytes("\"", "UTF-8")
+
+    if DEBUG:
+        print(struct.unpack(data_format, byteStream))
+
+    return nodeData
+
+
+'''Wake up LoRa module
+ 
+   @return {int} number of bytes written
+'''
+def awake_LoRa() -> int:
+    try:
+        sent_data: int = serialPort.write(b"\xff\xff\xff\xff" + command("LOWPOWER", bytes("AUTOOFF", "UTF-8")))
+        serialPort.flush()
+    except SerialTimeoutException as e:
+        print("LoRa-E5: Could not exit deep sleep mode.", file=sys.stderr)
+
+    return sent_data
+
+
+'''Put LoRa module to sleep
+ 
+   @return {int} number of bytes written
+'''
+def sleep_LoRa() -> int:
+    try:
+        sent_data: int = serialPort.write(command("LOWPOWER", bytes("AUTOON", "UTF-8")))
+        serialPort.flush()
+    except SerialTimeoutException as e:
+        print("LoRa-E5: Could not enter deep sleep mode.", file=sys.stderr)
+
+    return sent_data

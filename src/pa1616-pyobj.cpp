@@ -81,9 +81,56 @@ int32_t openGPSPort(const char *devname)
  */
 void GPSReadWait(int32_t fd) {
 	int bytesAvail = 0;
+
 	while (bytesAvail < GPS_MSG_SIZE) {
 		ioctl(fd, FIONREAD, &bytesAvail);
 	}
+}
+
+/* Extract antenna acknowledgement message from read buffer 
+ *
+ * @param {string} buffString - string of read buffer
+ *
+ * @return {string} extracted antenna acknowledgement, empty string otherwise
+ */
+string extractAntMsg(string buffString) {
+	// Find begin index
+	int16_t beginIndex = 0;
+
+	if ((beginIndex = buffString.find(ANTENNA_ACK_HEADER, beginIndex)) < 0) {
+		cerr << "PA1616: Did not receive acknowledgement for command enabling the antenna." << endl;
+		return string();
+	}
+
+	// Find end index
+	int16_t endIndex;
+	
+	if ((endIndex = buffString.find_first_of(10, beginIndex)) < 0) {
+		cerr <<  "PA1616: Could not parse ANTENNA_ACK packet." << endl;
+		return string();
+	}
+
+	uint16_t msglen = endIndex - beginIndex;
+
+	return buffString.substr(beginIndex, msglen);
+}
+
+/* Check type of antenna acknowledgement message for antenna status 
+ *
+ * @param {string} antenna_ack - string of antenna acknowledgment
+ *
+ * @return {bool} true if internal/external antenna is used, false if antenna is shorted
+ */
+bool checkAntAckType(string antenna_ack) {
+	if (antenna_ack[ANTENNA_ACK_IDX] == ANT_TYPE_INT_ANT) {
+		cerr << "PA1616: WARNING - Using internal antenna." << endl;
+	}
+	else if (antenna_ack[ANTENNA_ACK_IDX] == ANT_TYPE_SHORTED) {
+                cerr << "PA1616: Active antenna shorted." << endl;
+		return false;
+        }
+	
+	return true;
 }
 
 /* Send PMTK command to enable GPS external antenna
@@ -96,31 +143,32 @@ bool enableAntenna(int32_t fd) {
 	char buff[GPS_MSG_SIZE+1];
 	int16_t nbytes;
 	string buffString;
-	int16_t beginIndex = 0;
 	string antenna_ack;
 
+	// Wait for PMTK system message and beginning of NMEA messages to be read in buffer
 	do {
+		// Read from GPS
 		GPSReadWait(fd);
 		if ((nbytes = read(fd, buff, GPS_MSG_SIZE)) < 0) {
 			cerr << "PA1616: Cannot read from GPS." << endl;
 			return false;
 		}
-		if (DEBUG)
-			cout << "nbytes (startup completion message): " << nbytes << endl << endl;
 		else if (nbytes == 0) {
 			cerr << "PA1616: Did not read anything from GPS." << endl;
 			return false;
 		}
+
+		if (DEBUG)
+			cout << "nbytes (startup completion message): " << nbytes << endl << endl;
+
 		buff[nbytes] = '\0';
 		buffString = buff;
 		//if (DEBUG)
 			//cout << "buffString: " << buffString << endl << endl;
 	}
-	while ((beginIndex = buffString.find(PMTK_SYS_MSG, beginIndex)) < 0 && (beginIndex = buffString.find(NMEA_HEADER, beginIndex+1)) < 0);
-
-	if (DEBUG)
-		cout << "beginIndex: " << beginIndex << endl << endl;
+	while (buffString.find(PMTK_SYS_MSG, beginIndex) < 0 && buffString.find(NMEA_HEADER, beginIndex+1) < 0);
 	
+	// Write command to enable antenna
 	if ((nbytes = write(fd, PMTK_EN_ANT, strlen(PMTK_EN_ANT))) < 0) {
 		cerr << "PA1616: Cannot write to GPS." << endl;
 		return false;
@@ -128,47 +176,41 @@ bool enableAntenna(int32_t fd) {
 	if (DEBUG)
 		cout << "nbytes (sent enable antenna command): " << nbytes << endl << endl;
 	
+	// Get an acknowledgement from enabling the antenna
 	uint8_t ant_ack_read = 0;
 	for (int i = 0; i < 3; i++) {
-	GPSReadWait(fd);	
-	if ((nbytes = read(fd, buff, GPS_MSG_SIZE)) < 0) {
-		cerr << "PA1616: Cannot read from GPS." << endl;
-                return false;
-        } 
-        else if (nbytes == 0) {
-                cerr << "PA1616: Did not read anything from GPS." << endl;
-                return false;
-        }
-	if (DEBUG)
-		cout << "nbytes (acknowledgement of received command): " << nbytes << endl << endl;
+		// Read from GPS
+		GPSReadWait(fd);	
+		if ((nbytes = read(fd, buff, GPS_MSG_SIZE)) < 0) {
+			cerr << "PA1616: Cannot read from GPS." << endl;
+               		return false;
+        	} 
+        	else if (nbytes == 0) {
+                	cerr << "PA1616: Did not read anything from GPS." << endl;
+                	return false;
+        	}
+
+		if (DEBUG)
+			cout << "nbytes (acknowledgement of received command): " << nbytes << endl << endl;
 	
-	beginIndex = 0;
-	buff[nbytes] = '\0';
-	buffString = buff;
+		buff[nbytes] = '\0';
+		buffString = buff;
+		
+		// Extract acknowledgement from read buffer
+		if ((antenna_ack = extractAntMsg(buffString)).empty())
+			continue;
 
-	if ((beginIndex = buffString.find(ANTENNA_ACK_HEADER, beginIndex)) < 0) {
-		cerr << "PA1616: Did not receive acknowledgement for command enabling the antenna." << endl;
-		continue;
-	}
+		char antennaBuff[GPS_MSG_SIZE];
+		strcpy(antennaBuff, antenna_ack.c_str());
 
-	int16_t endIndex;
-	
-	if ((endIndex = buffString.find_first_of(10, beginIndex)) < 0) {
-		cerr <<  "PA1616: Could not parse ANTENNA_ACK packet." << endl;
-		continue;
-	}
-	uint16_t msglen = endIndex - beginIndex;
-	antenna_ack = buffString.substr(beginIndex, msglen);
+		// Check if acknowledgement is corrupted
+		if (checksum_valid(antennaBuff) < 0) {
+			cerr << "PA1616: Corrupted ANTENNA_ACK packet." << endl;
+			continue;
+		}
 
-	char antennaBuff[GPS_MSG_SIZE];
-	strcpy(antennaBuff, antenna_ack.c_str());
-
-	if (checksum_valid(antennaBuff) < 0) {
-		cerr << "PA1616: Corrupted ANTENNA_ACK packet." << endl;
-		continue;
-	}
-	ant_ack_read = 1;
-	break;
+		ant_ack_read = 1;
+		break;
 	}
 
 	if (!ant_ack_read) {
@@ -179,15 +221,8 @@ bool enableAntenna(int32_t fd) {
 	if (DEBUG)
 		cout << "antenna_ack: " << antenna_ack[ANTENNA_ACK_IDX] << endl << endl;
 	
-	if (antenna_ack[ANTENNA_ACK_IDX] == '1') {
-		cerr << "PA1616: WARNING - Using internal antenna." << endl;
-	}
-	else if (antenna_ack[ANTENNA_ACK_IDX] == '3') {
-                cerr << "PA1616: Active antenna shorted." << endl;
-		return false;
-        }
-	
-	return true;
+	// Check acknowledgement type
+	return checkAntAckType(antenna_ack);
 }
 
 /* Send PMTK command to disable GPS external antenna
@@ -200,6 +235,7 @@ bool disableAntenna(int32_t fd) {
 	char buff[GPS_MSG_SIZE+1] = PMTK_DIS_ANT;
         int16_t nbytes;
 
+	// Write command to disable antenna
         if ((nbytes = write(fd, buff, strlen(buff))) < 0) {
                 cerr << "PA1616: Cannot write to GPS." << endl;
                 return false;
@@ -218,42 +254,29 @@ bool disableAntenna(int32_t fd) {
 int8_t obtainFix(int32_t fd, py::object buffer) {
 	PyObject* bufferObj = buffer.ptr();
 	char buff[GPS_MSG_SIZE+1];
-        /*uint8_t counter = 0;
-	while (counter < FIX_TIMER_COUNTER) {
-		uint8_t sum = 0;
-
-		for (uint8_t i=0; i < FIX_COUNTER; i++) {
-			sum += digitalRead(FIX_GPIO_PIN);
-			if (DEBUG)
-			    cout << (int)(sum) << endl;
-			this_thread::sleep_for(chrono::milliseconds(500));
-		}
-
-		if (!sum) {
-			break;
-		}
-
-		counter++;
-	}
-	
-	if (counter == FIX_TIMER_COUNTER) {
-			cerr << "PA1616: Fix waiting timeout." << endl;
-			return -1;
-	}*/
-	
 	int16_t nbytes;
+
+	// Read from GPS
 	GPSReadWait(fd);
 	if ((nbytes = read(fd, buff, GPS_MSG_SIZE)) < 0) {
+		// Restart GPS
 		if (write(fd, PMTK_CMD_COLD_START, strlen(PMTK_CMD_COLD_START)) < 0) {
-				cerr << "PA1616: Could not write to GPS." << endl;
-				if (close(fd) < 0) {
-					cerr << "PA1616: Could not close device file." << endl;
-				}
-				return -1;
+			cerr << "PA1616: Could not write to GPS." << endl;
+
+			// Close file if GPS could not be read
+			if (close(fd) < 0) {
+				cerr << "PA1616: Could not close device file." << endl;
+			}
+			return -1;
 		}
+
+		// Wait for cold start to be completeted
 		sleep(35);
+
+		// Read from GPS
 		GPSReadWait(fd);
 		if ((nbytes = read(fd, buff, GPS_MSG_SIZE)) < 0) {
+			// Poll GPS
 			for (uint8_t i = 0; i < 25; i += 5) {
 				sleep(5);
 				GPSReadWait(fd);
@@ -261,17 +284,20 @@ int8_t obtainFix(int32_t fd, py::object buffer) {
 					break;
 			}
 		}
+		// Close file if GPS could not be read
 		if (nbytes < 0) {
-				cerr << "PA1616: Could not read from GPS." << endl;
-				if (close(fd) < 0) {
-					cerr << "PA1616: Could not close device file." << endl;
-				}
-				return -1;
+			cerr << "PA1616: Could not read from GPS." << endl;
+			if (close(fd) < 0) {
+				cerr << "PA1616: Could not close device file." << endl;
+			}
+			return -1;
 		}
 	}
         if (DEBUG)
 		cout << "nbytes: " << unsigned(nbytes) << endl << endl;
+
 	buff[nbytes] = '\0';
+
         if (DEBUG) {
 		for (int i = 0; i < nbytes; i++) {
 			if (buff[i] >= 0 && buff[i] < 128) {
@@ -281,6 +307,7 @@ int8_t obtainFix(int32_t fd, py::object buffer) {
 		cout << endl;
 	}
 
+	// Populate Python object from read buffer
 	if (nbytes > 0) {
 		if (PySequence_SetItem(bufferObj, 0, PyUnicode_FromString(buff)) < 0) {
 			cerr << "PA1616: PyObject for obtained fix cannot be populated." << endl;
@@ -288,6 +315,7 @@ int8_t obtainFix(int32_t fd, py::object buffer) {
 		}
 		return 0;
 	}
+
 	return -1;
 }
 
@@ -318,9 +346,11 @@ int16_t hex2int(char *c)
 {
 	uint8_t value;
 	int8_t retVal;
+
 	retVal = hexchar2int(c[0]);
 	if (retVal < 0)
 		return retVal;
+
 	value = retVal;
 	value = value << 4;
 	retVal = hexchar2int(c[1]);
@@ -354,6 +384,8 @@ int8_t checksum_valid(char *s)
 		for (uint8_t i = 1; i < strlen(s); i++) {
 			calculated_checksum = calculated_checksum ^ s[i];
 		}
+
+		// Convert checksum string to integer
 		validCSRet = hex2int((char *)checksum_str+1);
 		if (validCSRet < 0) {
 				cerr << "PA1616: Checksum could not be converted to an integer." << endl;
@@ -363,6 +395,8 @@ int8_t checksum_valid(char *s)
 		if (DEBUG) {
 				cout << "Checksum Str " << (char *)checksum_str+1 << ", Checksum " << checksum << ", " << "Calculated Checksum " << calculated_checksum << endl;
 		}
+
+		// check if calculated checksum matches valid checksum
 		if (checksum == calculated_checksum) {
 			return 0;
 		}
@@ -387,10 +421,13 @@ int8_t parse_comma_delimited_str(char *s, py::object field, uint8_t max_fields) 
 	char* fields_cstr[max_fields];
 	fields_cstr[i++] = s;
 	
+	// Replace comma with null character
 	while ((i < max_fields) && NULL != (s = strchr(s, ','))) {
 		*s = '\0';
 		fields_cstr[i++] = ++s;
 	}
+	
+	// Populate Python object with parsed data
 	for (uint8_t j=0; j < i; j++) {
 			if (PySequence_SetItem(fields, j, PyBytes_FromString(fields_cstr[j])) < 0) {
 					cerr << "PA1616: PyObject for parsed data cannot be populated: at index " 
@@ -483,12 +520,12 @@ int8_t setTime(char* date, char* time)
 	}
 
 	if (DEBUG) {
-			clock_gettime(CLOCK_REALTIME, &ts);
-			cout << "Number of seconds since Epoch: " << ts.tv_sec << endl;
-			delete gpstime;
-			gpstime = gmtime(&ts.tv_sec);
-			cout << "System UTC_Date: " << gpstime->tm_mday << (gpstime->tm_mon)+1 << (gpstime->tm_year)%100 << ", ";
-			cout << "UTC_Time " << gpstime->tm_hour << gpstime->tm_min << gpstime->tm_sec << endl << endl;
+		clock_gettime(CLOCK_REALTIME, &ts);
+		cout << "Number of seconds since Epoch: " << ts.tv_sec << endl;
+		delete gpstime;
+		gpstime = gmtime(&ts.tv_sec);
+		cout << "System UTC_Date: " << gpstime->tm_mday << (gpstime->tm_mon)+1 << (gpstime->tm_year)%100 << ", ";
+		cout << "UTC_Time " << gpstime->tm_hour << gpstime->tm_min << gpstime->tm_sec << endl << endl;
 	}
 	return ret;
 }
@@ -521,12 +558,14 @@ void debug_print_fields(uint8_t numfields, py::object field)
  * @return {int8_t} 0 upon successful data packaging, -1 otherwise
  */
 int8_t packageGPSData(char *buffer, py::object field, GPSPkg& data, int32_t lat_idx, int32_t lon_idx) {
+	// Parse GPS data
 	int8_t i = parse_comma_delimited_str(buffer, field, GPS_PARSED_MSG_NUM_FIELDS);
-
 	if (i < 0) {
-			cerr << "PA1616: Failed to package GPS data." << endl;
-			return -1;
+		cerr << "PA1616: Failed to package GPS data." << endl;
+		return -1;
 	}
+	
+	// Obtain GPS latitude and longitude
         PyObject* fields = field.ptr();
 	data.latitude = PyBytes_AsString(PySequence_GetItem(fields, lat_idx));
 	data.longitude = PyBytes_AsString(PySequence_GetItem(fields, lon_idx));

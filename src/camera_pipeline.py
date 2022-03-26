@@ -1,4 +1,3 @@
-
 from rpi_camera import *
 from tflite_classify import *
 
@@ -7,7 +6,7 @@ from tflite_classify import *
   
    @return {list[str]} Labels list of detected objects in image
 '''
-def classification_pipeline():
+def classification_pipeline() -> list[str]:
   interpreter, labels, width, height = load_model()
   label_list = process_image(captureImage(), interpreter, labels, width, height)
   if debug == 1:

@@ -12,6 +12,8 @@ PYBIND11_MODULE(sht30, m) {
 
 /* Initialize SHT30
  * 
+ * @param {const char *} bus - device file name
+ * 
  * @return {int32_t} File descriptor, or -1 for initialization error
  */
 int32_t initialize(const char *bus) {
@@ -46,6 +48,8 @@ int32_t initialize(const char *bus) {
 
 /* Open file for preparation in reading SHT30 data
  * 
+ * @param {const char *} bus - device file name
+ * 
  * @return {int32_t} File descriptor, or -1 for error in opening file
  */
 int32_t open_file(const char *bus) {
@@ -70,28 +74,25 @@ int32_t open_file(const char *bus) {
  * @return {int8_t} 0 upon successful reading, -1 otherwise
  */
 int8_t readData(int32_t file, uint8_t* data) {
-	  if(read(file, data, TH_DATA_SIZE) != TH_DATA_SIZE) {
-				return -1;
-	  }
+    if(read(file, data, TH_DATA_SIZE) != TH_DATA_SIZE) {
+        return -1;
+    }
 
-    // reset read cursor to start of file for next read
-    // lseek(file, 0, SEEK_SET);
-
-		return 0;
+    return 0;
 }
 
 /* Check if data is corrupted using CRC8 algorithm
  *
  * @param {const uint8_t*} data - pointer to data buffer
- * @param {uint32_t} data - size of buffer 
+ * @param {uint32_t} len - size of buffer 
  *
  * @return {uint8_t} CRC remainder
  */
-uint8_t CRC8(const uint8_t *data, uint32_t len)
-{
+uint8_t CRC8(const uint8_t *data, uint32_t len) {
     const uint8_t POLYNOMIAL = 0x31;
     uint8_t crc = 0xFF;
     uint32_t i, j;
+
     if (DEBUG) {
 	cout << "data[0]=" << hex << unsigned(data[0]) << endl;
         cout << "data[1]=" << unsigned(data[1]) << endl;
@@ -130,6 +131,7 @@ int8_t processData(int32_t file, py::object temp, py::object temp_hum_arr) {
     double th_temp_arr[TH_NUM_FIELDS] = {0.0};
     uint8_t data[TH_DATA_SIZE];
     
+    // Read data from device file
     if(readData(file, data) < 0) {
         if (DEBUG) {
             cout << "SHT30: Data could not be read." << endl;
@@ -138,6 +140,7 @@ int8_t processData(int32_t file, py::object temp, py::object temp_hum_arr) {
         return -1;
     }
 
+    // Check if temperature data is corrupted through checksum algorithm
     if (CRC8(data, 3) != 0) {
         if (DEBUG) {
             cout << "SHT30: Temperature data is corrupted." << endl;
@@ -146,6 +149,7 @@ int8_t processData(int32_t file, py::object temp, py::object temp_hum_arr) {
         return -1;
     }
 
+    // Check if humidity data is corrupted through checksum algorithm
     if (CRC8(data + 3, 3) != 0) {
         if (DEBUG) {
             cout << "SHT30: Humidity data is corrupted." << endl;
@@ -160,11 +164,13 @@ int8_t processData(int32_t file, py::object temp, py::object temp_hum_arr) {
     th_temp_arr[1] = -49 + (315 * (tempH) / 65535.0);
     th_temp_arr[2] = 100 * (data[3] * 256 + data[4]) / 65535.0;
 
+    // Set raw temperature data into Python object
     if (PySequence_SetItem(tmp, 0, PyLong_FromLong((long)(tempH))) < 0) {
 	cerr << "SHT30: PyObject for raw temperature data could not be populated." << endl;
 	return -1;
     }
 
+    // Set temperature and humidity data into Python object
     for (uint8_t i=0; i<TH_NUM_FIELDS; i++) {
         if (PySequence_SetItem(th_arr, i, PyFloat_FromDouble(th_temp_arr[i])) < 0) {
 	    cerr << "SHT30: PyObject for data could not be populated."  << endl;
