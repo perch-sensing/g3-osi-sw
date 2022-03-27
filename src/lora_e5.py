@@ -10,9 +10,10 @@ LORA_BOOT: int = 38
 BUFF_SIZE: int = 500
 BAUD_RATE: int = 9600
 PORT_NUM: str = "7"
-BAND_PLAN = bytes("US915", "UTF-8")
-DATA_RATE = bytes("DR3", "UTF-8")
-CHANNELS = bytes("NUM,8-15", "UTF-8")
+BAND_PLAN: Type[bytes] = bytes("US915", "UTF-8")
+DATA_RATE: Type[bytes] = bytes("DR3", "UTF-8")
+CHANNELS: Type[bytes] = bytes("NUM,8-15", "UTF-8")
+MODE: Type[bytes] = bytes("LWOTAA", "UTF-8")
 DEBUG: int = 1
 
 MUX_SEL_A: int = 26
@@ -61,7 +62,7 @@ def command(comm: str, *args: Type[bytes]) -> Type[bytes]:
     fullCom: Type[bytes] = bytes(fullCom_str, "UTF-8")
 
     # append arguments to the command
-    if len(args) > 0:
+    if len(args) > 0:                      
         fullCom = fullCom + bytes("=", "UTF-8") + args[0]
         for i in range(1, len(args)):
             fullCom = fullCom + bytes(" ", "UTF-8") + args[i]
@@ -77,12 +78,12 @@ def command(comm: str, *args: Type[bytes]) -> Type[bytes]:
 
 '''Write command to serial port (helper function)
 
-   @param {Type[Serial]} serialPort - serial port for LoRa module
+   @param {Type[serial.Serial]} serialPort - serial port for LoRa module
    @param {Type[bytes]) comm_bytes - command in bytes
  
    @return {None}	
 '''
-def init_helper(serialPort: Type[Serial], comm_bytes: Type[bytes]) -> None:
+def init_helper(serialPort: Type[serial.Serial], comm_bytes: Type[bytes]) -> None:
     serialPort.write(comm_bytes)
     serialPort.flush()
 
@@ -94,9 +95,9 @@ def init_helper(serialPort: Type[Serial], comm_bytes: Type[bytes]) -> None:
 
    @param {str} dev_name - name of device file for LoRa module
  
-   @return {Type[Serial]} serial port for LoRa module
+   @return {Type[serial.Serial]} serial port for LoRa module
 '''
-def init_LoRa(dev_name: str) -> Type[Serial]:
+def init_LoRa(dev_name: str) -> Type[serial.Serial]:
     GPIO.setup(LORA_RESET, GPIO.OUT) 
     GPIO.setup(LORA_BOOT, GPIO.OUT)
 
@@ -110,29 +111,29 @@ def init_LoRa(dev_name: str) -> Type[Serial]:
     GPIO.output(LORA_RESET, GPIO.HIGH)
 
     # open serial port
-    serialPort: Type[Serial] = Serial(dev_name, BAUD_RATE, timeout=5)
+    serialPort: Type[serial.Serial] = serial.Serial(dev_name, BAUD_RATE, timeout=5)
     if DEBUG:
         print("Opened serial port")
 
     sleep(5)
     try:
         init_helper(serialPort, command("DR", BAND_PLAN))  
-        init_helper(serialPort, command("DR", DATA_RATE))
+        #init_helper(serialPort, command("DR", DATA_RATE))
         init_helper(serialPort, command("CH", CHANNELS))  
-        init_helper(serialPort, command("PORT", bytes(PORT_NUM, "UTF-8")))
+        #init_helper(serialPort, command("PORT", bytes(PORT_NUM, "UTF-8")))
+        init_helper(serialPort, command("MODE", MODE))  
     except SerialTimeoutException as e:
         print("LoRa-E5: Could not issue command to module.", file=sys.stderr)
 
     return serialPort
 
-
 '''Receive data over LoRa
 
-   @param {Type[Serial]) serialPort - serial port for LoRa module
+   @param {Type[serial.Serial]) serialPort - serial port for LoRa module
  
    @return {str} received data
 '''
-def recv_LoRa(serialPort: Type[Serial]) -> str:
+def recv_LoRa(serialPort: Type[serial.Serial]) -> str:
     try:
         # read serial port
         received_data: str = serialPort.read_until(expected='', size=BUFF_SIZE).decode("UTF-8")
@@ -150,11 +151,11 @@ def recv_LoRa(serialPort: Type[Serial]) -> str:
 '''Send data over LoRa
 
    @param {Type[bytes]) nodeDate - data collected from active sensing modules
-   @param {Type[Serial]) serialPort - serial port for LoRa module
+   @param {Type[serial.Serial]) serialPort - serial port for LoRa module
  
    @return {int} number of bytes written
 '''
-def send_LoRa(nodeData: Type[bytes], serialPort: Type[Serial]) -> int:
+def send_LoRa(nodeData: Type[bytes], serialPort: Type[serial.Serial]) -> int:
     try:
         # send data
         sent_data: int = serialPort.write(command("MSG", nodeData))
@@ -211,11 +212,11 @@ def pack_data(data_format: str, args: list[str]) -> Type[bytes]:
 
 '''Wake up LoRa module
 
-   @param {Type[Serial]) serialPort - serial port for LoRa module
+   @param {Type[serial.Serial]) serialPort - serial port for LoRa module
  
    @return {int} number of bytes written
 '''
-def awake_LoRa(serialPort: Type[Serial]) -> int:
+def awake_LoRa(serialPort: Type[serial.Serial]) -> int:
     try:
         sent_data: int = serialPort.write(b"\xff\xff\xff\xff" + command("LOWPOWER", bytes("AUTOOFF", "UTF-8")))
         serialPort.flush()
@@ -227,11 +228,11 @@ def awake_LoRa(serialPort: Type[Serial]) -> int:
 
 '''Put LoRa module under low power mode
  
-   @param {Type[Serial]) serialPort - serial port for LoRa module
+   @param {Type[serial.Serial]) serialPort - serial port for LoRa module
 
    @return {int} number of bytes written
 '''
-def sleep_LoRa(serialPort: Type[Serial]) -> int:
+def sleep_LoRa(serialPort: Type[serial.Serial]) -> int:
     try:
         sent_data: int = serialPort.write(command("LOWPOWER", bytes("AUTOON", "UTF-8")))
         serialPort.flush()

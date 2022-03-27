@@ -142,6 +142,7 @@ bool checkAntAckType(string antenna_ack) {
 bool enableAntenna(int32_t fd) {
 	char buff[GPS_MSG_SIZE+1];
 	int16_t nbytes;
+	int16_t beginIndex = 0;
 	string buffString;
 	string antenna_ack;
 
@@ -509,7 +510,8 @@ int8_t setTime(char* date, char* time)
 		cout << "Number of seconds since Epoch: " << ts.tv_sec << endl;
 
 	ts.tv_nsec = 0;
-	ret = clock_settime(CLOCK_REALTIME, &ts);
+	ret = 0;
+	/*ret = clock_settime(CLOCK_REALTIME, &ts);
 	if (DEBUG)
 		cout << "errno (clock_settime): " << errno << endl;
 	if (ret) {
@@ -517,7 +519,7 @@ int8_t setTime(char* date, char* time)
 		if (DEBUG) {
 			cout << "ret: " << ret << endl;
 		}
-	}
+	}*/
 
 	if (DEBUG) {
 		clock_gettime(CLOCK_REALTIME, &ts);

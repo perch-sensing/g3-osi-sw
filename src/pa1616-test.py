@@ -5,6 +5,7 @@ import sys
 import RPi.GPIO as GPIO
 from time import sleep
 
+#Macros
 DEBUG: int = 1    # print results to console
 DEBUG2: int = 0   # verbose debugging statements
 UART_DEV: str = "/dev/ttyAMA0"
@@ -17,7 +18,6 @@ GGA_STR: str = "GGA"
 RMC_STR: str = "RMC"
 GP_STR: str = "$GP"
 GN_STR: str = "$GN"
-GGA_RMC_flags: int = 0b00
 GGA_MASK: int = 0b10
 RMC_MASK: int = 0b01
 GGA_RET_VALUE: int = 0
@@ -41,6 +41,9 @@ FIX_TIMER_BUFFER_MASK: int = 0x000000FF
 MUX_SEL_A: int = 26
 MUX_SEL_B: int = 32
 GPS_MUX_SEL: tuple[int, int] = (0, 1)
+
+#Global variables
+GGA_RMC_flags: int = 0b00
 
 def GPS_GPIO_Init() -> None:
     GPIO.setup(GPS_NRESET_PIN, GPIO.OUT)
@@ -179,25 +182,26 @@ def main() -> None:
     GPIO.setmode(GPIO.BOARD)
     GPS_GPIO_Init()
     switchGPSInit()
-    switchGPSOff()
-    muxSelInit()
-    setMuxSel(GPS_MUX_SEL)
-    switchGPSOn()
-    GPSReset()
+    #switchGPSOff()
+    #muxSelInit()
+    #setMuxSel(GPS_MUX_SEL)
+    #switchGPSOn()
+    #GPSReset()
     
+    #switchGPSOff()
     #GPIO.cleanup()
+    #sys.stderr.close()
+    #sys.stderr = stderr_fileno
     #return
 
     buff: list[str]
     fd = pa1616_pyobj.openGPSPort(UART_DEV)
-    sleep(30)
+
     if (not pa1616_pyobj.enableAntenna(fd)):
         pa1616_pyobj.closeGPSPort(fd)
         return -1
-    #sleep(200)
-    '''sys.stderr.close()
-    sys.stderr = stderr_fileno
-    return'''
+
+    #sleep(480)
 
     if not waitForFix():
         pa1616_pyobj.closeGPSPort(fd)

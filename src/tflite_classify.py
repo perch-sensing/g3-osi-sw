@@ -2,7 +2,8 @@ import numpy as np
 import time
 import os
 from tflite_runtime.interpreter import Interpreter 
-from PIL import Image
+from PIL import Image as img
+from PIL.Image import Image
 from typing import *
 
 DEBUG: int = 1
@@ -26,7 +27,7 @@ def load_labels(path: str) -> list[str]:
 '''Assign image data to the input tensor of the model
 
    @param {Type[Interpreter]} interpreter - interpreter interface for tflite models
-   @param {Type[Image]}  image - PIL.Image object of image
+   @param {Type[Image]}  image - PIL.Image.Image object of image
   
    @return {void}
 '''
@@ -39,13 +40,13 @@ def set_input_tensor(interpreter: Type[Interpreter], image: Type[Image]) -> None
 '''Run image through object detection model for classification list
  
    @param {Type[Interpreter]} interpreter - interpreter interface for tflite models
-   @param {Type[Image]} image - PIL.Image object of image
+   @param {Type[Image]} image - PIL.Image.Image object of image
    @param {int} top_k - number of top entries of classification list
   
    @return {int} Identification number for label index within labels list
    @return {float} Probability of object being accurately classified
 '''
-def classify_image(interpreter: Type[interpreter], image: Type[Image], top_k: int) -> tuple[list[int], list[float]]:
+def classify_image(interpreter: Type[Interpreter], image: Type[Image], top_k: int) -> tuple[list[int], list[float]]:
   # Set image as input tensor
   set_input_tensor(interpreter, image)
 
@@ -113,7 +114,7 @@ def load_model() -> tuple[Type[Interpreter], list[str], int, int]:
 '''
 def process_image(img_name: str, interpreter: Type[Interpreter], labels: list[str], width: int, height: int) -> list[str]:
   # Load an image to be classified. Convert RGB-ordered pixel data into BGR-order.
-  image = Image.open("./" + img_name).convert('RGB').resize((width, height))
+  image = img.open("./" + img_name).convert('RGB').resize((width, height))
   container = list(image.getdata())
   wid, hgt = image.size
   for i in range(wid*hgt):
