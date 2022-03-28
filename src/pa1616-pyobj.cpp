@@ -248,7 +248,7 @@ bool disableAntenna(int32_t fd) {
 /* Obtain fix from GPS
  *
  * @param {int32_t} fd - file descriptor of device file
- * @param {char*} buffer - GPS data container
+ * @param {py::object} buffer - GPS data container
  *
  * @return {int8_t} 0 upon successful data collection, -1 otherwise
  */
