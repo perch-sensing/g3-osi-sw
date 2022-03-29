@@ -7,9 +7,8 @@ int main(int argc, char **argv)
 	cerr.rdbuf(errorLog.rdbuf());
 	
 	int32_t fd;
-	char *buffer = (char *)calloc(GPS_MSG_SIZE, sizeof(char));
-	uint8_t nbytes;
-	char *field[GPS_PARSED_MSG_NUM_FIELDS];
+	char buffer[GPS_MSG_SIZE];
+	string field[GPS_PARSED_MSG_NUM_FIELDS];
 	uint8_t GPS_Valid = 1;
 	GPSPkg gps;
 
@@ -17,7 +16,7 @@ int main(int argc, char **argv)
 	sprintf(buffer, "$GNGGA,165006.000,2241.9107,N,12017.2383,E,1,14,0.79,22.6,M,18.5,M,,*42");
 	
 	if (strncmp(&buffer[3], "GGA", 3) == 0) {
-		packageGPSData(buffer, field, &gps);
+		packageGPSData(buffer, field, gps);
 
 		if (DEBUG) {
 			cout << "UTC Time  :" << field[1] << endl;
@@ -28,7 +27,7 @@ int main(int argc, char **argv)
 		}
 	}
 	if (strncmp(&buffer[3], "RMC", 3) == 0) {
-			packageGPSData(buffer, field, &gps);
+			packageGPSData(buffer, field, gps);
 
 			if (DEBUG) {
 				cout << "Speed     :" << field[7] << endl;
@@ -36,25 +35,22 @@ int main(int argc, char **argv)
 				cout << "Date      :" << field[9] << endl;
 			}
 
-			if (SetTime(field[9],field[1]) < 0) {
+			/* if (setTime(field[9],field[1]) < 0) {
 				GPS_Valid = 0;
-			}
+			}*/
 	}
 // ------END EARLY DEBUG PHASE WITH GIVEN BUFFER
 
-	if ((fd = OpenGPSPort(UART_DEV)) < 0)
+	if (((fd = openGPSPort(UART_DEV)) < 0) || (obtainFix(fd, buffer) < 0))
 	{
 			GPS_Valid = 0;
 			return -1;
 	}
 
-	if (obtainFix(fd, &buffer) < 0) {
-			GPS_Valid = 0;
-			return -1;
-	}
+	int counter = 0;
 
 	do {
-			if (nbytes == 0) {
+			if (!strlen(buffer)) {
 				cerr << "PA1616: No communication from GPS module." << endl;
 				GPS_Valid = 0;
 			} else {
@@ -66,7 +62,7 @@ int main(int argc, char **argv)
 						(strncmp(buffer, "$GN", 3) == 0)) {
 
 						if (strncmp(&buffer[3], "GGA", 3) == 0) {
-							packageGPSData(buffer, field, &gps);
+							packageGPSData(buffer, field, gps);
 
 							if (DEBUG) {
 								cout << "UTC Time  :" << field[1] << endl;
@@ -78,7 +74,7 @@ int main(int argc, char **argv)
 						}
 						
 						if (strncmp(&buffer[3], "RMC", 3) == 0) {
-								packageGPSData(buffer, field, &gps);
+								packageGPSData(buffer, field, gps);
 			
 								if (DEBUG) {
 									cout << "Speed     :" << field[7] << endl;
@@ -86,26 +82,26 @@ int main(int argc, char **argv)
 									cout << "Date      :" << field[9] << endl;
 								}
 
-								if (SetTime(field[9],field[1]) < 0) {
+								/*
+								if (setTime(field[9],field[1]) < 0) {
 									GPS_Valid = 0;
-								}
+								}*/
 						}
 					}
 				}
 			}
-			if ((nbytes = read(fd, &buffer, sizeof(buffer))) < 0) {
-					cerr << "PA1616: Could not read from GPS." << endl;
-					GPS_Valid = 0;
-					break;
+			if (obtainFix(fd, buffer) < 0) {
+				GPS_Valid = 0;
+				break;
 			}
-	} while(1);
+			counter += 1;
+	} while(counter < 10);
 
-	if (close(fd) < 0) {
-		cerr << "PA1616: Could not close device file." << endl;
+	if (closeGPSPort(fd) < 0) {
 		GPS_Valid = 0;
 		return -1;
 	}
-	free(buffer);
+
 	errorLog.close();
 	return 0;
 }

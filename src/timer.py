@@ -26,5 +26,5 @@ class Timer:
 
     def __exit__(self, exc_type, exc_value, tb):
         if exc_type is not None:
-            traceback.print_exception(exc_type, exc_value, tb)
+            traceback.print_exception(exc_type, exc_value, tb, file=stderr)
         return True

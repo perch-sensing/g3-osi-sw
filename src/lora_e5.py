@@ -16,38 +16,14 @@ CHANNELS: Type[bytes] = bytes("NUM,8-15", "UTF-8")
 MODE: Type[bytes] = bytes("LWOTAA", "UTF-8")
 DEBUG: int = 1
 
-MUX_SEL_A: int = 26
-MUX_SEL_B: int = 32
-LORA_MUX_SEL: tuple[int, int] = (1, 0)
-
 COMM_HEADER: str = "AT"
 COMM_END: str = "\r\n"
-DEV_NAME: str = "/dev/ttyAMA0"
-
-'''Initialize mux select
- 
-   @return {None}	
-'''
-def muxSelInit() -> None:
-    GPIO.setup(MUX_SEL_A, GPIO.OUT)
-    GPIO.setup(MUX_SEL_B, GPIO.OUT)
-
-
-'''Set mux select
-
-   @param {tuple[int, int]} sel - mux select configuration
- 
-   @return {None}	
-'''
-def setMuxSel(sel: tuple[int, int]) -> None:
-    GPIO.output(MUX_SEL_B, sel[0])
-    GPIO.output(MUX_SEL_A, sel[1])
 
 
 '''Create a command
 
    @param {str} comm - command type
-   @param {Type[bytes]) *args - command arguments in bytes
+   @param {Type[bytes]} *args - command arguments in bytes
  
    @return {Type[bytes]} command in bytes
 '''
@@ -79,7 +55,7 @@ def command(comm: str, *args: Type[bytes]) -> Type[bytes]:
 '''Write command to serial port (helper function)
 
    @param {Type[serial.Serial]} serialPort - serial port for LoRa module
-   @param {Type[bytes]) comm_bytes - command in bytes
+   @param {Type[bytes]} comm_bytes - command in bytes
  
    @return {None}	
 '''
@@ -89,7 +65,6 @@ def init_helper(serialPort: Type[serial.Serial], comm_bytes: Type[bytes]) -> Non
 
     if DEBUG:
         print(recv_LoRa(serialPort))
-
 
 '''Initialize LoRa
 
@@ -129,7 +104,7 @@ def init_LoRa(dev_name: str) -> Type[serial.Serial]:
 
 '''Receive data over LoRa
 
-   @param {Type[serial.Serial]) serialPort - serial port for LoRa module
+   @param {Type[serial.Serial]} serialPort - serial port for LoRa module
  
    @return {str} received data
 '''
@@ -150,8 +125,8 @@ def recv_LoRa(serialPort: Type[serial.Serial]) -> str:
 
 '''Send data over LoRa
 
-   @param {Type[bytes]) nodeDate - data collected from active sensing modules
-   @param {Type[serial.Serial]) serialPort - serial port for LoRa module
+   @param {Type[bytes]} nodeDate - data collected from active sensing modules
+   @param {Type[serial.Serial]} serialPort - serial port for LoRa module
  
    @return {int} number of bytes written
 '''
@@ -186,33 +161,41 @@ def create_data_format_str(args: list[str]) -> str:
     return data_format_str
 
 
+'''Create compressed data format string
+
+   @param {str} data_format - data format string
+ 
+   @return {Type[bytes]} bytes object representation of data format string
+'''
+def create_comp_data_format_str(data_format: str) -> Type[bytes]:
+    return bytes(list(map(int, data_format.replace(' ', '').split("s")[0:-1])))
+
+
 '''Pack data collected from active sensing modules
 
-   @param {str) data_format - format string of how data will be packed
-   @param {list[str]) args - list of data collected from active sensing modules
+   @param {list[str]} args - list of data collected from active sensing modules
  
    @return {Type[bytes]} packed data in bytes
 '''
-def pack_data(data_format: str, args: list[str]) -> Type[bytes]:
+def pack_data(args: list[str]) -> Type[bytes]:
     # tempRaw, tempC, tempF, hum, classification
     # create struct to hold data for LoRa transmission
+    data_format = create_data_format_str(args)
     byteStream: Type[bytes] = struct.pack(data_format, *(bytes(args[i], "UTF-8") for i in range(len(args))))
+    comp_data_format = create_comp_data_format_str(data_format)
 
     if DEBUG:
         print(struct.unpack(data_format, byteStream))
 
     # put converted data between quotations marks
-    nodeData: Type[bytes] = bytes("\"", "UTF-8") + byteStream + bytes("\"", "UTF-8")
-
-    if DEBUG:
-        print(struct.unpack(data_format, byteStream))
+    nodeData: Type[bytes] = bytes("\"", "UTF-8") + comp_data_format + bytes(1) + byteStream + bytes("\"", "UTF-8")
 
     return nodeData
 
 
 '''Wake up LoRa module
 
-   @param {Type[serial.Serial]) serialPort - serial port for LoRa module
+   @param {Type[serial.Serial]} serialPort - serial port for LoRa module
  
    @return {int} number of bytes written
 '''
@@ -228,7 +211,7 @@ def awake_LoRa(serialPort: Type[serial.Serial]) -> int:
 
 '''Put LoRa module under low power mode
  
-   @param {Type[serial.Serial]) serialPort - serial port for LoRa module
+   @param {Type[serial.Serial]} serialPort - serial port for LoRa module
 
    @return {int} number of bytes written
 '''

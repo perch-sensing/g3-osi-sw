@@ -1,1 +1,1 @@
-g++ -O3 -Wall -shared -std=c++11 -fPIC $(python3 -m pybind11 --includes) pa1616-pyobj.cpp -o pa1616_pyobj$(python3-config --extension-suffix) -lwiringPi
+g++ -O3 -Wall -shared -std=c++11 -fPIC $(python3 -m pybind11 --includes) pa1616-pyobj.cpp -o pa1616_pyobj$(python3-config --extension-suffix)

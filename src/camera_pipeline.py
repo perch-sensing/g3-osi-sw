@@ -13,5 +13,3 @@ def classification_pipeline() -> list[str]:
     for label in  label_list:
       print(label)
   return label_list
-
-classification_pipeline()
