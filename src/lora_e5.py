@@ -18,6 +18,7 @@ DEBUG: int = 1
 
 COMM_HEADER: str = "AT"
 COMM_END: str = "\r\n"
+RECV_FAIL: str = "RECV_FAIL"
 
 
 '''Create a command
@@ -119,6 +120,7 @@ def recv_LoRa(serialPort: Type[serial.Serial]) -> str:
         received_data += serialPort.read(data_left).decode("UTF-8")
     except SerialException as e:
         print("LoRa-E5: Could not receive response from module.", file=sys.stderr)
+        return RECV_FAIL
 
     return received_data
 
@@ -137,6 +139,7 @@ def send_LoRa(nodeData: Type[bytes], serialPort: Type[serial.Serial]) -> int:
         serialPort.flush()
     except SerialTimeoutException as e:
         print("LoRa-E5: Could not send data to module.", file=sys.stderr)
+        return -1
 
     return sent_data
 

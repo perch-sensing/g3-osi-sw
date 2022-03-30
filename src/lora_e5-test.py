@@ -13,9 +13,11 @@ def main():
     serialPort = init_LoRa(DEV_NAME)
     sleep(5)
     
-    #if DEBUG:
-        #serialPort.write(command(""))
-        #print(recv_LoRa(serialPort))
+    if DEBUG:
+        serialPort.write(command(""))
+        recvBuff: str = recv_LoRa(serialPort)
+        print("number of bytes:", len(recvBuff))
+        print(recvBuff)
 
         #serialPort.write(command("MSG"))
         #print(recv_LoRa(serialPort))

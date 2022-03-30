@@ -218,7 +218,7 @@ def main() -> None:
             while t.lap() < GPS_READ_TIME_LIMIT:
                 if not (~GGA_RMC_flags & (GGA_MASK | RMC_MASK)):
                     break
-                buff = ["".join('a' for i in range(GPS_MSG_SIZE)) for j in range(2)]
+                buff = ["".join(' ' for i in range(GPS_MSG_SIZE)) for j in range(2)]
 
                 if (pa1616_pyobj.obtainFix(fd, buff) < 0):
                     continue
