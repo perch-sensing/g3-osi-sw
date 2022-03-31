@@ -14,7 +14,8 @@ BAND_PLAN: Type[bytes] = bytes("US915", "UTF-8")
 DATA_RATE: Type[bytes] = bytes("DR3", "UTF-8")
 CHANNELS: Type[bytes] = bytes("NUM,8-15", "UTF-8")
 MODE: Type[bytes] = bytes("LWOTAA", "UTF-8")
-DEBUG: int = 1
+DEBUG: int = 0
+DEBUG1: int = 1
 
 COMM_HEADER: str = "AT"
 COMM_END: str = "\r\n"
@@ -98,7 +99,7 @@ def init_LoRa(dev_name: str) -> Type[serial.Serial]:
         init_helper(serialPort, command("CH", CHANNELS))  
         #init_helper(serialPort, command("PORT", bytes(PORT_NUM, "UTF-8")))
         init_helper(serialPort, command("MODE", MODE))  
-    except SerialTimeoutException as e:
+    except serial.SerialTimeoutException as e:
         print("LoRa-E5: Could not issue command to module.", file=sys.stderr)
 
     return serialPort
@@ -112,13 +113,13 @@ def init_LoRa(dev_name: str) -> Type[serial.Serial]:
 def recv_LoRa(serialPort: Type[serial.Serial]) -> str:
     try:
         # read serial port
-        received_data: str = serialPort.read_until(expected='', size=BUFF_SIZE).decode("UTF-8")
+        received_data = serialPort.read_until(expected='', size=BUFF_SIZE).decode("UTF-8")
         sleep(0.03)
 
         # check for remaining byte
         data_left: int = serialPort.inWaiting()
         received_data += serialPort.read(data_left).decode("UTF-8")
-    except SerialException as e:
+    except serial.SerialException as e:
         print("LoRa-E5: Could not receive response from module.", file=sys.stderr)
         return RECV_FAIL
 
@@ -137,7 +138,7 @@ def send_LoRa(nodeData: Type[bytes], serialPort: Type[serial.Serial]) -> int:
         # send data
         sent_data: int = serialPort.write(command("MSG", nodeData))
         serialPort.flush()
-    except SerialTimeoutException as e:
+    except serial.SerialTimeoutException as e:
         print("LoRa-E5: Could not send data to module.", file=sys.stderr)
         return -1
 
@@ -183,6 +184,8 @@ def create_comp_data_format_str(data_format: str) -> Type[bytes]:
 def pack_data(args: list[str]) -> Type[bytes]:
     # tempRaw, tempC, tempF, hum, classification
     # create struct to hold data for LoRa transmission
+    if DEBUG1:
+        print("Data:", args)
     data_format = create_data_format_str(args)
     byteStream: Type[bytes] = struct.pack(data_format, *(bytes(args[i], "UTF-8") for i in range(len(args))))
     comp_data_format = create_comp_data_format_str(data_format)
@@ -206,7 +209,10 @@ def awake_LoRa(serialPort: Type[serial.Serial]) -> int:
     try:
         sent_data: int = serialPort.write(b"\xff\xff\xff\xff" + command("LOWPOWER", bytes("AUTOOFF", "UTF-8")))
         serialPort.flush()
-    except SerialTimeoutException as e:
+        serialPort.reset_input_buffer()
+        if DEBUG:
+            print(serialPort.read(BUFF_SIZE))
+    except serial.SerialTimeoutException as e:
         print("LoRa-E5: Could not exit deep sleep mode.", file=sys.stderr)
 
     return sent_data
@@ -222,7 +228,7 @@ def sleep_LoRa(serialPort: Type[serial.Serial]) -> int:
     try:
         sent_data: int = serialPort.write(command("LOWPOWER", bytes("AUTOON", "UTF-8")))
         serialPort.flush()
-    except SerialTimeoutException as e:
+        serialPort.reset_input_buffer()
+    except serial.SerialTimeoutException as e:
         print("LoRa-E5: Could not enter deep sleep mode.", file=sys.stderr)
-
     return sent_data

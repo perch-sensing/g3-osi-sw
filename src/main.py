@@ -8,6 +8,7 @@ from sht30_main_header import *
 import sht30
 from pa1616_main_header import *
 import pa1616
+from lora_e5_main_header import *
 from lora_e5 import *
 from camera_main_header import *
 from camera_pipeline import *
@@ -17,7 +18,7 @@ from typing import *
 def main() -> None:
     # Variables for stages and valid flags
     stage: int = 0
-    valid_flags: int = 0b1111   # L->R: GPS, TH, Camera, LoRa
+    global valid_flags
     
     # File descriptors
     GPS_File: int
@@ -29,8 +30,8 @@ def main() -> None:
 
     # Set up error log files
     stderr_fo = sys.stderr
-    errors_fo = open(ERRORS_LOG_NAME, "r+")
-    gpsErrors_fo = open(GPS_ERRORS_LOG_NAME, "r+")
+    errors_fo = open(ERRORS_LOG_NAME, "w+")
+    gpsErrors_fo = open(GPS_ERRORS_LOG_NAME, "w+")
 
     # Direct errors to GPS error log file
     sys.stderr = gpsErrors_fo
@@ -48,6 +49,8 @@ def main() -> None:
 
         # Turn GPS switch off, flip mux input to GPS input, turn GPS switch on, and reset the GPS
         switchGPSOff()
+        print("***Switch TX to GPS***")
+        sleep(10)
         setMuxSel(GPS_MUX_SEL)
         switchGPSOn()
         GPSReset()
@@ -58,7 +61,7 @@ def main() -> None:
 
         # Enable the GPS antenna
         if check_valid_flag(GPS_VALID_MASK) and not pa1616.enableAntenna(GPS_File):
-            pa1616_pyobj.closeGPSPort(GPS_File)
+            pa1616.closeGPSPort(GPS_File)
             clear_valid_flag(GPS_VALID_MASK)
         
         # Direct errors to main error log file
@@ -73,12 +76,16 @@ def main() -> None:
             clear_valid_flag(CAMERA_VALID_MASK)
 
         # Flip mux input to LoRa input, initialize LoRa, and flip mux input back to GPS input
+        print("***Switch TX to LoRa***")
+        sleep(10)
         setMuxSel(LORA_MUX_SEL)
-        if ((LoRa_File := init_LoRa(UART_PORT)) < 0) or (not test_LoRa(LoRa_File)):
+        if (not (LoRa_File := init_LoRa(UART_PORT))) or (not test_LoRa(LoRa_File)):
             clear_valid_flag(LORA_VALID_MASK)
 
         #***receive credentials for LoRa session through the LOAD input of the UART mux***
 
+        print("***Switch TX to GPS***")
+        sleep(10)
         setMuxSel(GPS_MUX_SEL)
 
         stage = 1
@@ -94,10 +101,9 @@ def main() -> None:
         sys.stderr = gpsErrors_fo
 
         if check_valid_flag(GPS_VALID_MASK):
-            # Wait 60 seconds for letting the GPS to wake up and then wait until a fix is obtained
-            sleep(60)
+            # Wait 120 seconds for letting the GPS to wake up and then wait until a fix is obtained
+            sleep(120)
             if not waitForFix():
-                pa1616.closeGPSPort(GPS_File)
                 clear_valid_flag(GPS_VALID_MASK)
             else:
                 with Timer() as t:
@@ -132,15 +138,18 @@ def main() -> None:
 
             pa1616.disableAntenna(GPS_File)
         
-        # Switch off GPS and direct errors to main error log file
+        # Switch off GPS, direct errors to main error log file, and flip mux input to LoRa input
         pa1616.closeGPSPort(GPS_File)
         switchGPSOff()
-        sys.stderr = errors_fo    
+        sys.stderr = errors_fo
+        print("***Switch TX to LoRa***")
+        sleep(10)
+        setMuxSel(LORA_MUX_SEL)    
 
         # Extract contents from GPS error log file, close the file, and send GPS error log file
         # over LoRa
         gpsErrorBytes: Type[bytes] = bytes(gpsErrors_fo.read(), "UTF-8")
-        gpsErrors.close()
+        gpsErrors_fo.close()
         if check_valid_flag(LORA_VALID_MASK):
             send_LoRa(gpsErrorBytes, LoRa_File)
 
@@ -153,9 +162,9 @@ def main() -> None:
 
     if stage == 2:
         # Data containers for stage 2
-        label_list: list[str]
+        label_list: list[str] = [""]
         TH_Data: list[float] = [0.0 for i in range(TH_NUM_FIELDS)]
-        temp: int
+        temp: list[int] = [0 for i in range(2)]
         errorBytes: Type[bytes]
         dataBytes: Type[bytes]
 
@@ -176,20 +185,20 @@ def main() -> None:
             errors_fo.truncate(0)
 
             # Send data over LoRa
-            dataBytes = pack_data([str(temp)] + \
+            dataBytes = pack_data([str(temp[0])] + \
                                    [str(TH_Data[i]) for i in range(TH_NUM_FIELDS)] + \
                                    [label_list[i] for i in range(len(label_list))])
             if check_valid_flag(LORA_VALID_MASK):
                 send_LoRa(dataBytes, LoRa_File)
 
             # Put LoRa into sleep mode
-            sleep_LoRa()
+            sleep_LoRa(LoRa_File)
 
             # Sleep for 2 minutes
             sleep(120)
 
             # Awake LoRa from sleep mode
-            awake_LoRa()
+            awake_LoRa(LoRa_File)
 
     # Close main error log file
     sys.stderr = stderr_fo

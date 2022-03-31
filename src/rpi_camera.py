@@ -14,4 +14,6 @@ def captureImage() -> str:
   camera.start_preview()
   sleep(2)
   camera.capture(image_name)
+  camera.stop_preview()
+  camera.close()
   return image_name
