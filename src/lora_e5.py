@@ -94,7 +94,6 @@ def init_LoRa(dev_name: str) -> Type[serial.Serial]:
 
     sleep(5)
     try:
-        awake_LoRa(serialPort)
         init_helper(serialPort, command("DR", BAND_PLAN))  
         #init_helper(serialPort, command("DR", DATA_RATE))
         init_helper(serialPort, command("CH", CHANNELS))  

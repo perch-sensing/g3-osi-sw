@@ -6,6 +6,7 @@ from main_header import *
 from mux import *
 from sht30_main_header import *
 import sht30
+import pa1616_main_header
 from pa1616_main_header import *
 import pa1616
 from lora_e5_main_header import *
@@ -20,7 +21,6 @@ def main() -> None:
     # Variables for stages and valid flags
     stage: int = 0
     global valid_flags
-    global GGA_RMC_flags
     
     # File descriptors
     GPS_File: int
@@ -52,7 +52,7 @@ def main() -> None:
         # Turn GPS switch off, flip mux input to GPS input, turn GPS switch on, and reset the GPS
         #switchGPSOff()
         print("***Switch TX to GPS***")
-        #sleep(10)
+        sleep(10)
         setMuxSel(GPS_MUX_SEL)
         #switchGPSOn()
         #GPSReset()
@@ -65,6 +65,9 @@ def main() -> None:
         if check_valid_flag(GPS_VALID_MASK) and not pa1616.enableAntenna(GPS_File):
             pa1616.closeGPSPort(GPS_File)
             clear_valid_flag(GPS_VALID_MASK)
+
+        # Wait 120 seconds for letting the GPS to wake up
+        #sleep(120)
         
         # Direct errors to main error log file
         sys.stderr = errors_fo
@@ -107,44 +110,52 @@ def main() -> None:
             sys.stderr = gpsErrors_fo
 
             if check_valid_flag(GPS_VALID_MASK):
-                # Wait 120 seconds for letting the GPS to wake up and then wait until a fix is obtained
-                #sleep(120)
+                # Wait for the GPS to get a fix over a certain period of time
                 if not waitForFix():
                     clear_valid_flag(GPS_VALID_MASK)
                 else:
                     with Timer() as t:
                         t.start()
                         curr_lap: int = t.lap()
+                        # Attempt to acquire a GGA message (for latitude and longitude) and an RMC message (for system time and date) in a certain time frame
                         while (curr_lap := t.lap()) < GPS_READ_TIME_LIMIT:
                             print("** curr_lap =", curr_lap, "**")
-                            print("** GGA_RMC_flags", GGA_RMC_flags, "**")
+                            print("** GGA_RMC_flags", pa1616_main_header.GGA_RMC_flags, "**")
                             sleep(3)
-                            if not (~GGA_RMC_flags & (GGA_MASK | RMC_MASK)):
+                            if not (~pa1616_main_header.GGA_RMC_flags & (GGA_MASK | RMC_MASK)):
                                 break
                             GPS_Data: list[str] = ["".join(' ' for i in range(GPS_MSG_SIZE)) for j in range(2)]
                             GPS_Fields: list[str] = ["" for i in range(GPS_PARSED_MSG_NUM_FIELDS)]
 
+                            # Obtain a buffer of messages
                             if (pa1616.obtainFix(GPS_File, GPS_Data) < 0):
                                 continue
                             GPS_Buffer: str
                             counter: int = 0
+
+                            # Extract a valid GGA or RMC message (if such is available)
                             if ((GPS_Buffer := extractMsg(GPS_Data[0])) == ""):
                                 continue
                             if (pa1616.checksum_valid(GPS_Buffer) < 0):
                                 continue
-                            if (GGA_RMC_flags & GGA_MASK and not GGA_set):
+
+                            # If the message is GGA and a GGA message has not been received prior, extract the latitude and longitude from it and store it in the GPS struct
+                            if (pa1616_main_header.GGA_RMC_flags & GGA_MASK and not GGA_set):
                                 if (pa1616.packageGPSData(GPS_Buffer, GPS_Fields, GPS_Pkg, GGA_LAT_IDX, GGA_LON_IDX) < 0):
-                                    GGA_RMC_flags &= ~GGA_MASK
+                                    pa1616_main_header.GGA_RMC_flags &= ~GGA_MASK
                                     continue
                                 GGA_set = 1
 
-                            if (GGA_RMC_flags & RMC_MASK and not RMC_set):
+                            # If the message is RMC and an RMC message has not been received prior, extract the date and time from it and set the system clock with this data
+                            if (pa1616_main_header.GGA_RMC_flags & RMC_MASK and not RMC_set):
                                 if (pa1616.parse_comma_delimited_str(GPS_Buffer, GPS_Fields, GPS_PARSED_MSG_NUM_FIELDS) < 0):
-                                    GGA_RMC_flags &= ~RMC_MASK
+                                    pa1616_main_header.GGA_RMC_flags &= ~RMC_MASK
                                     continue
                                 if (pa1616.setTime(GPS_Fields[RMC_DATE_IDX], GPS_Fields[RMC_TIME_IDX]) < 0):
                                     pass
                                 RMC_set = 1
+
+                        # Check whether the timer reached the end and clear the corresponding flag if messages were not obtained within the given time frame
                         if curr_lap >= GPS_READ_TIME_LIMIT:
                             clear_valid_flag(GPS_VALID_MASK)
 
@@ -223,7 +234,7 @@ def main() -> None:
                     setMuxSel(GPS_MUX_SEL)
                     pa1616.enableAntenna(GPS_File)
                     set_valid_flag(GPS_VALID_MASK)
-                    GGA_RMC_flags = GGA_MASK | RMC_MASK
+                    pa1616_main_header.GGA_RMC_flags = GGA_MASK | RMC_MASK
                     stage = 1
                     break
 
