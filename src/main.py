@@ -241,6 +241,7 @@ def main() -> None:
                 ctr += 1
         cntr += 1
 
+    GPIO.cleanup()
     # Close main error log file
     sys.stderr = stderr_fo
     errors_fo.close()
