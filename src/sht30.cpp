@@ -69,15 +69,23 @@ int32_t open_file(const char *bus) {
 /* Read SHT30 data
  *
  * @param {int32_t} file - File descriptor for i2c-1
- * @param {uint8_t*}  data - buffer for 6-byte data
+ * @param {py::object}  data - buffer for 6-byte data
  * 		Ordering is Temp msb, Temp lsb, Temp CRC, Humididty msb, Humidity lsb, Humidity CRC
  * @return {int8_t} 0 upon successful reading, -1 otherwise
  */
-int8_t readData(int32_t file, uint8_t* data) {
-    if(read(file, data, TH_DATA_SIZE) != TH_DATA_SIZE) {
+int8_t readData(int32_t file, py::object data) {
+    uint8_t buff[TH_DATA_SIZE];
+    PyObject* bufferObj = data.ptr();
+    if(read(file, buff, TH_DATA_SIZE) != TH_DATA_SIZE) {
         return -1;
     }
-
+    for (uint8_t i = 0; i < TH_DATA_SIZE; i++) {
+        if (PySequence_SetItem(bufferObj, i, PyLong_FromUnsignedLong(buff[i])) < 0) {
+            cerr << "SHT30: PyObject for raw data cannot be populated: at index "
+                 << unsigned(i) << " - " << unsigned(buff[i]) << endl;
+            return -1;
+        }
+    }
     return 0;
 }
 
@@ -118,13 +126,14 @@ uint8_t CRC8(const uint8_t *data, uint32_t len) {
 /* Read and convert data from SHT30
  *
  * @param {int32_t} file - file descriptor
- * @param {uint16_t*} temp - pointer to temperature variable
+ * @param {py:object} raw_data - pointer to array for raw bytes
+ * @param {py::object} temp - pointer to temperature variable
  * @param {py::object} temp_hum_arr - pointer to array of Celsius temperature, 
  *                                 Fahrenheit temperature, and humidity variable
  * 
  * @return {int8_t} 0 upon successful data collection, otherwise -1
  */
-int8_t processData(int32_t file, py::object temp, py::object temp_hum_arr) {
+int8_t processData(int32_t file, py::object raw_data, py::object temp, py::object temp_hum_arr) {
     PyObject* tmp = temp.ptr();
     PyObject* th_arr = temp_hum_arr.ptr();
     uint16_t tempH = 0;
@@ -132,12 +141,19 @@ int8_t processData(int32_t file, py::object temp, py::object temp_hum_arr) {
     uint8_t data[TH_DATA_SIZE];
     
     // Read data from device file
-    if(readData(file, data) < 0) {
+    if(readData(file, raw_data) < 0) {
         if (DEBUG) {
             cout << "SHT30: Data could not be read." << endl;
         }
         cerr << "SHT30: Data could not be read." << endl;
         return -1;
+    }
+    for (uint8_t i = 0; i < TH_DATA_SIZE; i++) {
+        if ((data[i] = (uint8_t)(PyLong_AsUnsignedLong(PySequence_GetItem(raw_data.ptr(), i)))) == (unsigned long)-1) {
+            cerr << "SHT30: PyObject conversion to unsigned long failed for raw data at index "
+                 << unsigned(i) << "." << endl;
+            return -1;
+        }
     }
 
     // Check if temperature data is corrupted through checksum algorithm

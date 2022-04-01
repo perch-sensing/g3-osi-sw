@@ -27,8 +27,8 @@ using namespace py;
 
 int32_t initialize(const char *bus);
 int32_t open_file(const char *bus);
-int8_t readData(int32_t file, uint8_t* data);
+int8_t readData(int32_t file, py::object data);
 uint8_t CRC8(const uint8_t* data, uint32_t len);
-int8_t processData(int32_t file, py::object temp, py::object temp_hum_arr);
+int8_t processData(int32_t file, py::object raw_data, py::object temp, py::object temp_hum_arr);
 
 #endif

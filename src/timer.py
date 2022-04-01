@@ -1,5 +1,6 @@
 import time
 import traceback
+import sys
 
 class TimerError(Exception):
     """A custom exception used to report errors in use of Timer class"""
@@ -26,5 +27,5 @@ class Timer:
 
     def __exit__(self, exc_type, exc_value, tb):
         if exc_type is not None:
-            traceback.print_exception(exc_type, exc_value, tb, file=stderr)
+            traceback.print_exception(exc_type, exc_value, tb, file=sys.stderr)
         return True

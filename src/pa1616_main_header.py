@@ -4,7 +4,7 @@ import RPi.GPIO as GPIO
 from time import sleep
 
 DEBUG: int = 1    # print results to console
-DEBUG2: int = 0   # verbose debugging statements
+DEBUG2: int = 1   # verbose debugging statements
 GPS_MSG_SIZE: int = 350
 GPS_PARSED_MSG_NUM_FIELDS: int = 20
 GGA_STR: str = "GGA"
@@ -24,7 +24,7 @@ RMC_LON_IDX: int = 5
 RMC_DATE_IDX: int = 9
 RMC_TIME_IDX: int = 1
 
-GPS_READ_TIME_LIMIT: int = 15
+GPS_READ_TIME_LIMIT: int = 20
 GPS_SW_EN_PIN: int = 35
 GPS_NRESET_PIN: int = 37
 GPS_FIX_PIN: int = 40

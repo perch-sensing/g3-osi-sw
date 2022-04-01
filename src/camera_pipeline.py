@@ -8,7 +8,7 @@ from tflite_classify import *
 '''
 def classification_pipeline() -> list[str]:
   interpreter, labels, width, height = load_model()
-  label_list = process_image(captureImage(), interpreter, labels, width, height)
+  label_list: list[str] = process_image(captureImage(), interpreter, labels, width, height)
   if DEBUG:
     for label in  label_list:
       print(label)

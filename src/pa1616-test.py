@@ -7,7 +7,7 @@ from time import sleep
 
 #Macros
 DEBUG: int = 1    # print results to console
-DEBUG2: int = 0   # verbose debugging statements
+DEBUG2: int = 1   # verbose debugging statements
 UART_DEV: str = "/dev/ttyAMA0"
 GPS_MSG_SIZE: int = 350
 GPS_PARSED_MSG_NUM_FIELDS: int = 20
@@ -182,11 +182,13 @@ def main() -> None:
     GPIO.setmode(GPIO.BOARD)
     GPS_GPIO_Init()
     switchGPSInit()
+    '''
     switchGPSOff()
     muxSelInit()
     setMuxSel(GPS_MUX_SEL)
     switchGPSOn()
     GPSReset()
+    '''
     '''
     switchGPSOff()
     GPIO.cleanup()
@@ -203,7 +205,7 @@ def main() -> None:
         pa1616.closeGPSPort(fd)
         return -1
 
-    sleep(480)
+    #sleep(480)
 
     if not waitForFix():
         pa1616.closeGPSPort(fd)

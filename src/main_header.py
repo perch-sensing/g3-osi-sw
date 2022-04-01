@@ -17,6 +17,10 @@ def clear_valid_flag(valid_flag_mask: int) -> None:
     global valid_flags
     valid_flags &= ~valid_flag_mask
 
+def set_valid_flag(valid_flag_mask: int) -> None:
+    global valid_flags
+    valid_flags |= valid_flag_mask
+
 def check_valid_flag(valid_flag_mask: int) -> bool:
     global valid_flags
     return valid_flags & valid_flag_mask

@@ -38,6 +38,9 @@
 #define ANT_TYPE_INT_ANT '1'
 #define ANT_TYPE_SHORTED '3'
 
+#define SET_TIME_COMM_LEN 40
+#define SET_TIME_COMM "./set-time "
+
 using namespace std;
 namespace py = pybind11;
 

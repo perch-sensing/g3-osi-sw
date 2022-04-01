@@ -4,6 +4,7 @@ from time import sleep
 
 from typing import *
 
+TH_DATA_SIZE: int = 6
 TH_NUM_FIELDS: int = 3
 DEBUG: int = 1
 
@@ -17,8 +18,9 @@ def main() -> None:
   if (fd >= 0):
     temp: list[int] = [0 for i in range(2)]
     temp_hum_arr: list[float] = [0.0 for i in range(TH_NUM_FIELDS)]
+    buffer: int = [0 for i in range(TH_DATA_SIZE)]
     while cnt < 50:
-      if (sht30.processData(fd, temp, temp_hum_arr) >= 0):
+      if (sht30.processData(fd, buffer, temp, temp_hum_arr) >= 0):
         if (DEBUG):
           print("\nTemperature:", temp[0])
           print("Temperature (C):", temp_hum_arr[0])

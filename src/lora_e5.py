@@ -14,7 +14,7 @@ BAND_PLAN: Type[bytes] = bytes("US915", "UTF-8")
 DATA_RATE: Type[bytes] = bytes("DR3", "UTF-8")
 CHANNELS: Type[bytes] = bytes("NUM,8-15", "UTF-8")
 MODE: Type[bytes] = bytes("LWOTAA", "UTF-8")
-DEBUG: int = 0
+DEBUG: int = 1
 DEBUG1: int = 1
 
 COMM_HEADER: str = "AT"
@@ -94,6 +94,7 @@ def init_LoRa(dev_name: str) -> Type[serial.Serial]:
 
     sleep(5)
     try:
+        awake_LoRa(serialPort)
         init_helper(serialPort, command("DR", BAND_PLAN))  
         #init_helper(serialPort, command("DR", DATA_RATE))
         init_helper(serialPort, command("CH", CHANNELS))  

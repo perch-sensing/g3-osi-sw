@@ -1,0 +1,1 @@
+sudo setcap CAP_SYS_TIME+ep ./set-time

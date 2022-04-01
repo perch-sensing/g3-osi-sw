@@ -451,7 +451,6 @@ int8_t setTime(char* date, char* time)
 {
 	struct timespec ts;
 	struct tm * gpstime;
-	time_t secs;
 	char tempbuf[3];
 	int8_t ret;
 
@@ -509,17 +508,11 @@ int8_t setTime(char* date, char* time)
 	if (DEBUG)
 		cout << "Number of seconds since Epoch: " << ts.tv_sec << endl;
 
-	ts.tv_nsec = 0;
-	ret = 0;
-	/*ret = clock_settime(CLOCK_REALTIME, &ts);
-	if (DEBUG)
-		cout << "errno (clock_settime): " << errno << endl;
-	if (ret) {
+        string comm(SET_TIME_COMM);
+	comm += to_string(ts.tv_sec);
+	if (system(comm.c_str()) < 0) {
 		cerr << "PA1616: System clock could not be set." << endl;
-		if (DEBUG) {
-			cout << "ret: " << ret << endl;
-		}
-	}*/
+	}
 
 	if (DEBUG) {
 		clock_gettime(CLOCK_REALTIME, &ts);

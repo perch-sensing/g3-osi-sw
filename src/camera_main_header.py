@@ -5,6 +5,10 @@ import sys
 CHECK_CAMERA_COM: str = "vcgencmd get_camera"
 CAM_STAT_FLNM: str = "camera_status.txt"
 
+'''Check whether camera is recognized by the system
+ 
+   @return {bool} True if camera is detected, False otherwise
+'''
 def detectCamera() -> bool:
     subproc = subprocess.Popen(CHECK_CAMERA_COM, shell=True, stdout=subprocess.PIPE)
     subproc_return = subproc.stdout.read()
