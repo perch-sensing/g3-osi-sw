@@ -67,7 +67,7 @@ def main() -> None:
             clear_valid_flag(GPS_VALID_MASK)
 
         # Wait 120 seconds for letting the GPS to wake up
-        #sleep(120)
+        sleep(120)
         
         # Direct errors to main error log file
         sys.stderr = errors_fo
@@ -92,6 +92,9 @@ def main() -> None:
         print("***Switch TX to GPS***")
         sleep(10)
         setMuxSel(GPS_MUX_SEL)
+        
+        # Direct errors to GPS error log file
+        sys.stderr = gpsErrors_fo
 
         stage = 1
 
@@ -105,9 +108,6 @@ def main() -> None:
 
             GGA_set: int = 0
             RMC_set: int = 0
-
-            # Direct errors to GPS error log file
-            sys.stderr = gpsErrors_fo
 
             if check_valid_flag(GPS_VALID_MASK):
                 # Wait for the GPS to get a fix over a certain period of time
@@ -162,9 +162,9 @@ def main() -> None:
                 pa1616.disableAntenna(GPS_File)
 
             # Switch off GPS, direct errors to main error log file, and flip mux input to LoRa input
-            #if check_valid_flag(GPS_VALID_MASK):
-                #pa1616.closeGPSPort(GPS_File)
-                #switchGPSOff()
+            if check_valid_flag(GPS_VALID_MASK):
+                pa1616.closeGPSPort(GPS_File)
+                switchGPSOff()
             sys.stderr = errors_fo
             print("***Switch TX to LoRa***")
             sleep(10)
@@ -230,6 +230,8 @@ def main() -> None:
                 if not check_valid_flag(GPS_VALID_MASK):
                     print("\n***Trying to read from GPS again.***\n")
                     print("***Switch TX to GPS***")
+                    # Direct errors to GPS error log file
+                    sys.stderr = gpsErrors_fo
                     sleep(10)
                     setMuxSel(GPS_MUX_SEL)
                     pa1616.enableAntenna(GPS_File)
