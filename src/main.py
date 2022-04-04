@@ -50,12 +50,12 @@ def main() -> None:
         TH_buffer: int = [0 for i in range(TH_DATA_SIZE)]
 
         # Turn GPS switch off, flip mux input to GPS input, turn GPS switch on, and reset the GPS
-        #switchGPSOff()
+        switchGPSOff()
         print("***Switch TX to GPS***")
         sleep(10)
         setMuxSel(GPS_MUX_SEL)
-        #switchGPSOn()
-        #GPSReset()
+        switchGPSOn()
+        GPSReset()
 
         # Configure GPS port and open it
         if (GPS_File := pa1616.openGPSPort(UART_PORT)) < 0:
