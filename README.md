@@ -65,7 +65,7 @@ Requirements:
 - Internet connectivity: For downloading example files
 - This repo being located at home path, i.e. `~/`
 
-Simple run
+Simply run:
 ```shell
-sh test/tflite_test.sh
+sh test/ImageClassification/tflite_test.sh
 ```
