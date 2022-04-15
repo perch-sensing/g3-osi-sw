@@ -63,9 +63,53 @@ Testing of tflite-runtime can be done with `tflite_test` script located in test 
 
 Requirements:
 - Internet connectivity: For downloading example files
-- This repo being located at home path, i.e. `~/`
 
 Simply run:
 ```shell
 sh test/ImageClassification/tflite_test.sh
 ```
+
+# Sensor Modules
+## GPIO 
+All modules use the [WiringPi C](https://github.com/WiringPi/WiringPi) library, which cames pre-installed on Raspberry OS install. If not, it will need to be compiled and installed natively following the setup instructions below.
+
+### Setup
+1. Clone [WiringPi](https://github.com/WiringPi/WiringPi) repo
+    ```shell
+    git clone https://github.com/WiringPi/WiringPi.git
+    ```
+2. Navigate to build script
+    ```shell
+    cd WiringPi
+    ```
+3. Run build script
+    ```shell
+    ./build
+    ```
+
+WiringPi should now be installed. The WiringPi source code is no longer needed and can be removed.
+
+### Testing 
+WiringPi install comes with various cli tools, one of which is [gpio](http://wiringpi.com/the-gpio-utility/) which can be used to test successful install. More info can be found at http://wiringpi.com/the-gpio-utility
+
+```shell
+gpio -v
+```
+
+Which should respond with a message similar to:
+```shell
+gpio version: 2.70
+Copyright (c) 2012-2018 Gordon Henderson
+...
+...
+```
+
+## Temperature
+A simple test script exist to perform a single read from SHT30 module. The test can be run with the following commands:
+
+```shell 
+make SHT30_Test 
+./build/Temperature/SHT30
+```
+
+## GPS
