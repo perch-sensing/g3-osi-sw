@@ -104,12 +104,27 @@ Copyright (c) 2012-2018 Gordon Henderson
 ...
 ```
 
-## Temperature
-A simple test script exist to perform a single read from SHT30 module. The test can be run with the following commands:
+## Modules
 
-```shell 
-make SHT30_Test 
-./build/Temperature/SHT30
+Each module has a corresponding sample test. Building all test can be done by running the following command
+
+```shell
+make Test
 ```
 
-## GPS
+Additional each module has it's own `make` command. They consist of:
+
+```shell
+make Temperature_Test
+make GPS_Test
+make LoRa_Test
+```
+
+The follow test will them be made available:
+
+```shell
+./build/test/temperature_test <N>   ; Defaults to 1 if no N given
+./build/test/location_test <N>      ; Defaults to 1 if no N given
+./build/test/lora_test <N> <Data>   ; Defaults to 1 if no N given, data defaults to `TEST`
+```
+

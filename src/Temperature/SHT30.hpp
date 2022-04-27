@@ -10,18 +10,20 @@
  * @copyright Copyright (c) 2022
  * 
  */
-#include <wiringPiI2C.h>
 
+#include <cstdint>
+
+// ---- Hardware Configuration --------
 #define SHT30_I2C_ADDRESS 0x44
 
-// ---------- Commands ----------
+// ---- Commands ----------------------
 #define SHT30_COMMAND_SIZE 2
 #define SHT30_DATA_SIZE 6   // Bytes
-#define SHT30_SINGLE_SHOT {0x24, 0x00}
+#define SHT30_SINGLE_SHOT_REP_HIGH {0x24, 0x00}
 
 /**
- * @brief SHT30 temperature module 
- * @note Using Singleton pattern for implementation to since only one SHT30 module is connected
+ * @brief SHT30 temperature and humidity module 
+ * @note Using Singleton pattern for implementation since only one SHT30 module is connected
  */
 class SHT30 {
 
@@ -54,7 +56,7 @@ class SHT30 {
             float Humidity;
         };
         
-        /** @brief Get single instance of SHT30
+        /** @brief Get single instance of SHT30 module
          * @return SHT30& (SHT30 reference)  
          */
         static SHT30& getInstance();

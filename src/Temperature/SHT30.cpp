@@ -8,10 +8,13 @@
  * @copyright Copyright (c) 2022
  * 
  */
-#include <unistd.h>
+
+#include "SHT30.hpp"
 
 #include <stdexcept>
-#include "SHT30.hpp"
+#include <unistd.h>
+#include <wiringPiI2C.h>
+
 
 SHT30::SHT30() {
     sht30_fd = wiringPiI2CSetup(SHT30_I2C_ADDRESS);
@@ -65,7 +68,7 @@ SHT30::RawMeasurement SHT30::getRawMeasurement() {
     RawMeasurement rawMeasurement; 
 
     // Send single shot command
-    char command[] = SHT30_SINGLE_SHOT;
+    char command[] = SHT30_SINGLE_SHOT_REP_HIGH;
     write(sht30_fd, command, SHT30_COMMAND_SIZE);
 
     // Wait for measurement
@@ -78,7 +81,7 @@ SHT30::RawMeasurement SHT30::getRawMeasurement() {
         throw std::length_error("Failed to reading temperature and humidity data from SHT30!");
     }
 
-    // Perform CRC check
+    // Perform CRC check. If fail, request new measurement
 
     return rawMeasurement;
 }

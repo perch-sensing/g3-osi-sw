@@ -1,5 +1,4 @@
 numpy==1.22.3
 Pillow==9.1.0
 pkg_resources==0.0.0
-RPi.GPIO==0.7.1
 tflite-runtime @ file://~/g3-osi-sw/wheels/tflite_runtime-2.9.0-cp39-cp39-linux_armv6l.whl

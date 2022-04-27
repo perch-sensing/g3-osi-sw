@@ -4,6 +4,11 @@ PHOTO_FILE=${TEST_DIR}/tmp/grace_hopper.bmp
 MODEL_FILE=${TEST_DIR}/tmp/mobilenet_v1_1.0_224.tflite
 LABELS_FILE=${TEST_DIR}/tmp/labels.txt
 
+set -e
+
+# Activate enviornment
+. ${TEST_DIR}/../../.venv/bin/activate
+
 # Set up tmp directory
 if ! test -e "${TEST_DIR}/tmp"; then
     echo "\nDownloading needed files to ${TEST_DIR}/tmp directory..."
@@ -35,3 +40,6 @@ python3 ${TEST_DIR}/label_image.py \
 --model_file $MODEL_FILE \
 --label_file $LABELS_FILE \
 --image $PHOTO_FILE
+
+# Deactivate enviornment
+#deactivate
