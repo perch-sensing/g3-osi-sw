@@ -13,21 +13,11 @@
 
 #include <sstream>
 #include <unistd.h>
-#include <wiringPi.h>
-#include <wiringSerial.h>
 
 #include "../GPIOController.hpp"
 
-// TODO: Remove
-#include <iostream>
-
 PA1616::PA1616() {
-    pa1616_fd = serialOpen(PA1616_DEVICE_PATH, PA1616_BAUD_RATE);
-
-    // Test for connection, which according to documentation should never happen
-    if (pa1616_fd == -1)
-        throw std::runtime_error("Failed to communicate with PA1616 module!");
-
+    // Set up GPS pins
     GPIOController& gpio = GPIOController::getInstance();
 
     gpio.setMode(PA1616_SW_N_EN_PIN, OUTPUT);
@@ -44,9 +34,6 @@ PA1616::PA1616() {
 PA1616::~PA1616() {
     // In case left on
     powerOff();
-
-    // Close resources
-    serialClose(pa1616_fd); 
 }
 
 PA1616& PA1616::getInstance()  {
@@ -73,37 +60,22 @@ PA1616::RMC PA1616::getLocation(uint8_t tries) {
     // Power GPS on
     powerOn();
 
-    // // Reset, no real reason
-    // std::cout << "Resetting GPS..." << std::endl;
-    // GPIOController::getInstance().write(PA1616_NRESET_PIN, LOW);
-    // sleep(5);
-    // GPIOController::getInstance().write(PA1616_NRESET_PIN, HIGH);
-    // std::cout << "...Done" << std::endl;
+    // Attempt to get fixed location for TRIES attemps
+    GPIOController& gpio = GPIOController::getInstance();
 
-    // Read in output from module
     std::stringstream ss;
-
-    // Get location when fixed for TRIES attemps
-    char temp;
     std::string parsed_item;
-
     for ( ; tries > 0; tries--) {
         // Get GNGGA command
         do {
-            // Clear last command
-            ss.str(std::string());
+            // // Clear last command
+            // ss.str(std::string());
 
-            // Build response string
-            do {
-                temp = serialGetchar(pa1616_fd);
-                ss << temp;
-            } while (temp != '\n');
-
+            ss = gpio.serialReadLine();
+            
             // Parse command type
             getline(ss, parsed_item, ',');
-
-            std::cout << parsed_item << std::endl;
-
+            
         } while (parsed_item.find("RMC") == std::string::npos);
 
         // Parse UTC time

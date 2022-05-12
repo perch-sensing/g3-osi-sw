@@ -14,7 +14,6 @@
 #include <cstdint>
 #include <string>
 
-#define PA1616_DEVICE_PATH "/dev/serial0"
 #define PA1616_BAUD_RATE 9600
 
 // ---- Hardware Configuartion --------
@@ -31,8 +30,6 @@ class PA1616 {
     private:
         PA1616();
         ~PA1616();
-
-        int pa1616_fd;
         
         void powerOn();
         void powerOff();

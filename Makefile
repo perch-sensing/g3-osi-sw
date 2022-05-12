@@ -16,7 +16,11 @@ SHT30.o: ./src/Temperature/SHT30.cpp
 
 PA1616.o: GPIOController.o ./src/GPS/PA1616.cpp
 	@mkdir -p build/GPS
-	g++ -c ./src/GPS/PA1616.cpp -o ./build/GPS/PA1616.o ${LIBS} ${BUILD_FLAGS}
+	g++ -c ./src/GPS/PA1616.cpp -o ./build/GPS/PA1616.o ${BUILD_FLAGS}
+
+LoRa_E5.o: GPIOController.o ./src/LoRa/LoRa_E5.cpp
+	@mkdir -p build/LoRa
+	g++ -c ./src/LoRa/LoRa_E5.cpp -o ./build/LoRa/LoRa_E5.o ${BUILD_FLAGS}
 
 Temperature_Test: SHT30.o
 	@mkdir -p build/test
@@ -25,6 +29,11 @@ Temperature_Test: SHT30.o
 GPS_Test: PA1616.o
 	@mkdir -p build/test
 	g++ -o ./build/test/location_test ./test/GPS/location_test.cpp ./build/GPS/PA1616.o ./build/GPIOController.o ${LIBS} ${BUILD_FLAGS}
+
+LoRa_Test: LoRa_E5.o
+	@mkdir -p build/test
+	g++ -o ./build/test/lora_send_test ./test/LoRa/lora_send_test.cpp ./build/LoRa/LoRa_E5.o ./build/GPIOController.o ${LIBS} ${BUILD_FLAGS}
+	g++ -o ./build/test/lora_console ./test/LoRa/lora_console.cpp ./build/LoRa/LoRa_E5.o ./build/GPIOController.o ${LIBS} ${BUILD_FLAGS}
 
 clean:
 	@rm -rf build
