@@ -14,9 +14,10 @@
 #include <cstdint>
 #include <string>
 
+// ---- Software Configuration -------------
 #define PA1616_BAUD_RATE 9600
 
-// ---- Hardware Configuartion --------
+// ---- Hardware Configuration -------------
 #define PA1616_SW_N_EN_PIN 35
 #define PA1616_NRESET_PIN 37
 #define PA1616_FIX_PIN 40

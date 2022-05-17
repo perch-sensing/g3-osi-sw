@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
     // Test
     PA1616& gps = PA1616::getInstance();
     for ( ; number_readings > 0; number_readings--) {
-        PA1616::RMC data = gps.getLocation(200);
+        PA1616::RMC data = gps.getLocation();
 
         std::cout << data.UTC << std::endl; 
         std::cout << data.STATUS << std::endl; 

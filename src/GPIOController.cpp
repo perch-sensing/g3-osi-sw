@@ -18,6 +18,14 @@ GPIOController::GPIOController() {
 
     serial_fd   = 0;   
     serial_baud = 0;
+
+    // Mux module setup
+    pinMode(SERIAL_MUX_A, OUTPUT);
+    pinMode(SERIAL_MUX_B, OUTPUT);
+
+    selectUART(LOAD);
+
+    serial_selected = LOAD;
 }
 
 GPIOController::~GPIOController() {
@@ -67,43 +75,39 @@ void GPIOController::configureSerial(uint16_t baudrate) {
     }
 }
 
-int GPIOController::serialReadChar(uint16_t baudrate) {
+int GPIOController::serialReadChar(uint16_t baudrate, UART uart) {
     // Configure serial 
     configureSerial(baudrate);
+    selectUART(uart);
 
     return serialGetchar(serial_fd);
 }
 
-std::stringstream GPIOController::serialReadLine(uint16_t baudrate) {
+std::stringstream GPIOController::serialReadLine(uint16_t baudrate, UART uart) {
     // Line buffer
     std::stringstream ss;
     
     // Configure serial 
     configureSerial(baudrate);
+    selectUART(uart);
 
     // Get line
-    char data;
-    while (serialDataAvail(serial_fd) > 0) {
+    int data;
+
+    do {
         data = serialGetchar(serial_fd);
 
-        // Chars to ignore
-        if (data == '\r')
-            continue;
-
-        // Line read when char is return or newline
-        if (data == '\n')
-            break;
-
-        // Build line
-        ss << data;
-    }
+        if (data != -1 && data != '\r' && data != '\n')     // Exclude chars
+            ss << static_cast<char>(data);
+    } while (data != -1 && data != '\n');
 
     return ss;
 }
 
-void GPIOController::serialSend(uint16_t baudrate, std::string message) {
+void GPIOController::serialSend(uint16_t baudrate, std::string message, UART uart) {
     // Configure serial 
     configureSerial(baudrate);
+    selectUART(uart);
     
     // Add terminator to message
     if (message.back() != '\n') {
@@ -117,5 +121,32 @@ void GPIOController::serialSend(uint16_t baudrate, std::string message) {
 // ---- UART Mux Functions -----------------
 void GPIOController::selectUART(UART uart) {
 
+    // Do nothing if already selected
+    if (uart == serial_selected)
+        return;
+
+    switch (uart) {
+        case LOAD:
+            digitalWrite(SERIAL_MUX_A, LOW);
+            digitalWrite(SERIAL_MUX_B, LOW);
+            break;
+
+        case GPS:
+            digitalWrite(SERIAL_MUX_A, HIGH);
+            digitalWrite(SERIAL_MUX_B, LOW);
+            break;
+
+        case LORA:
+            digitalWrite(SERIAL_MUX_A, LOW);
+            digitalWrite(SERIAL_MUX_B, HIGH);
+            break;
+
+
+        default:
+            digitalWrite(SERIAL_MUX_A, LOW);
+            digitalWrite(SERIAL_MUX_B, LOW);
+            break;
+    }
     
+    serial_selected = uart;
 }

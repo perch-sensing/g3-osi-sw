@@ -10,6 +10,11 @@
  */
 
 #include <string>
+#include <sstream>
+
+// ---- Hardware Configuration -------------
+#define LORA_EN_PIN 36
+#define LORA_RESET_PIN 38
 
 class LoRa_E5 {
     private:
@@ -28,7 +33,11 @@ class LoRa_E5 {
 
         void joinNetwork();
 
+        void sendCommand(std::string command);
+
         void sendUnconfirmedMessage(std::string message);
+
+        std::stringstream readLine();
 };
 
 

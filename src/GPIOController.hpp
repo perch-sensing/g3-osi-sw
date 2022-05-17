@@ -15,21 +15,15 @@
 #include <wiringSerial.h>
 #include <wiringPi.h>
 
-// ---- Serial Configuration ----------
+// ---- Serial Configuration ---------------
 #define SERIAL_DEVICE_PATH "/dev/serial0"
 #define SERIAL_DEFAULT_BAUD 9600
 
+// ---- Mux Configuration ------------------
+#define SERIAL_MUX_A 26
+#define SERIAL_MUX_B 32
+
 class GPIOController {
-    private:
-        GPIOController();
-        ~GPIOController();
-
-        void configureSerial(uint16_t baudrate);
-
-        // Serial info 
-        int serial_fd;
-        uint16_t serial_baud;
-
     public:
         GPIOController(GPIOController const&)     = delete;
         void operator=(GPIOController const&)     = delete;
@@ -75,17 +69,27 @@ class GPIOController {
 
         // ---- Serial Interface -----------
 
-        int serialReadChar() { return serialReadChar(SERIAL_DEFAULT_BAUD); }
-        int serialReadChar(uint16_t baudrate);
-
-        std::stringstream serialReadLine() { return serialReadLine(SERIAL_DEFAULT_BAUD); }
-        std::stringstream serialReadLine(uint16_t baudrate);
-       
-        void serialSend(std::string message) { serialSend(SERIAL_DEFAULT_BAUD, message); }
-        void serialSend(uint16_t baudrate, std::string message);
-
-        // ---- UART Mux -------------------
-        enum UART { GPS, LORA, LOAD };
+        enum UART { LOAD, GPS, LORA };
 
         void selectUART(UART uart);
+
+        int serialReadChar(UART uart) { return serialReadChar(SERIAL_DEFAULT_BAUD, uart); }
+        int serialReadChar(uint16_t baudrate, UART uart);
+
+        std::stringstream serialReadLine(UART uart) { return serialReadLine(SERIAL_DEFAULT_BAUD, uart); }
+        std::stringstream serialReadLine(uint16_t baudrate, UART uart);
+       
+        void serialSend(std::string message, UART uart) { serialSend(SERIAL_DEFAULT_BAUD, message, uart); }
+        void serialSend(uint16_t baudrate, std::string message, UART uart);
+    private:
+        GPIOController();
+        ~GPIOController();
+
+        void configureSerial(uint16_t baudrate);
+
+        // Serial info 
+        int serial_fd;
+        uint16_t serial_baud;
+
+        UART serial_selected;
 };

@@ -4,7 +4,7 @@ BUILD_FLAGS := -Wall -Wextra -Werror
 All: SHT30.o PA1616.o GPIOController.o
 	@echo "\nAll modules built"
 
-Test: Temp_Test GPS_Test
+Test: Temperature_Test GPS_Test LoRa_Test
 	@echo "\nAll test built"
 
 GPIOController.o: ./src/GPIOController.cpp

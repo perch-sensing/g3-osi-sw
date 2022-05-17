@@ -66,16 +66,12 @@ PA1616::RMC PA1616::getLocation(uint8_t tries) {
     std::stringstream ss;
     std::string parsed_item;
     for ( ; tries > 0; tries--) {
-        // Get GNGGA command
+        // Get GNRMC command
         do {
-            // // Clear last command
-            // ss.str(std::string());
+            ss = gpio.serialReadLine(GPIOController::GPS);
 
-            ss = gpio.serialReadLine();
-            
             // Parse command type
             getline(ss, parsed_item, ',');
-            
         } while (parsed_item.find("RMC") == std::string::npos);
 
         // Parse UTC time
