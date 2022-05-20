@@ -12,8 +12,16 @@
 #include <iostream>
 
 #include "../../src/Temperature/SHT30.hpp"
+#include "../../src/GPIOController.hpp"
+
+#define FLAG_PIN 23
 
 int main(int argc, char **argv) {
+    // Setup
+    GPIOController& gpio = GPIOController::getInstance();
+    gpio.setMode(FLAG_PIN, OUTPUT);
+    gpio.write(FLAG_PIN, LOW);
+
     uint8_t number_readings = 1;
 
     // Update number of readings from command line args
@@ -25,7 +33,11 @@ int main(int argc, char **argv) {
     SHT30& tempSensor = SHT30::getInstance();
     SHT30::Measurement reading;
     for (; number_readings > 0; number_readings--) {
+
+        gpio.write(FLAG_PIN, HIGH);
         reading = tempSensor.getMeasurement();
+        gpio.write(FLAG_PIN, LOW);
+
         std::cout << "Temperature: " << reading.Temperature_C << " c" << std::endl; 
         std::cout << "Temperature: " << reading.Temperature_F << " F" << std::endl; 
         std::cout << "Temperature: " << reading.Humidity      << "% RH" << std::endl; 

@@ -10,7 +10,7 @@ Test: Temperature_Test GPS_Test LoRa_Test
 GPIOController.o: ./src/GPIOController.cpp
 	g++ -c ./src/GPIOController.cpp -o ./build/GPIOController.o ${LIBS} ${BUILD_FLAGS}
 
-SHT30.o: ./src/Temperature/SHT30.cpp
+SHT30.o: ./src/Temperature/SHT30.cpp ./src/GPIOController.cpp
 	@mkdir -p build/Temperature
 	g++ -c ./src/Temperature/SHT30.cpp -o ./build/Temperature/SHT30.o ${LIBS} ${BUILD_FLAGS}
 
@@ -24,7 +24,7 @@ LoRa_E5.o: GPIOController.o ./src/LoRa/LoRa_E5.cpp
 
 Temperature_Test: SHT30.o
 	@mkdir -p build/test
-	g++ -o ./build/test/temperature_test ./test/Temperature/temperature_test.cpp ./build/Temperature/SHT30.o ${LIBS} ${BUILD_FLAGS}
+	g++ -o ./build/test/temperature_test ./test/Temperature/temperature_test.cpp ./build/Temperature/SHT30.o ./build/GPIOController.o ${LIBS} ${BUILD_FLAGS}
 
 GPS_Test: PA1616.o
 	@mkdir -p build/test

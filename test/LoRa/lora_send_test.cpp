@@ -14,6 +14,9 @@
 #include <unistd.h>
 
 #include "../../src/LoRa/LoRa_E5.hpp"
+#include "../../src/GPIOController.hpp"
+
+#define FLAG_PIN 23
 
 int main(int argc, char **argv) {
     std::cout << " ---- LoRa send test ----" << std::endl;
@@ -26,6 +29,11 @@ int main(int argc, char **argv) {
         return -1;
     }
     
+    // Setup
+    GPIOController& gpio = GPIOController::getInstance();
+    gpio.setMode(FLAG_PIN, OUTPUT);
+    gpio.write(FLAG_PIN, LOW);
+
     std::string data = "T";
 
     // Update data if passed in
@@ -45,18 +53,22 @@ int main(int argc, char **argv) {
     std::cout << std::endl;
 
     // Run
-    std::string ret;
+    std::string ret1, ret2, ret3;
 
     LoRa_E5& lora = LoRa_E5::getInstance();
 
     for ( ; repeat > 0; --repeat) {
-        lora.sendUnconfirmedMessage(data);
-        sleep(5);
 
-        do {
-            ret = lora.readLine().str();
-            std::cout << ret << std::endl;
-        } while (!ret.empty());
+        gpio.write(FLAG_PIN, HIGH);
+        lora.sendUnconfirmedMessage(data);  
+        ret1 = lora.readLine().str();       // Reading unconfirmed message response
+        ret2 = lora.readLine().str();       // TODO: Check format or wait for done message
+        ret3 = lora.readLine().str();
+        gpio.write(FLAG_PIN, LOW);
+
+        std::cout << ret1 << std::endl;
+        std::cout << ret2 << std::endl;
+        std::cout << ret3 << std::endl;
     }
 
 }
