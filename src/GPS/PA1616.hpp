@@ -31,9 +31,7 @@ class PA1616 {
     private:
         PA1616();
         ~PA1616();
-        
-        void powerOn();
-        void powerOff();
+
     public:
         PA1616(PA1616 const&)             = delete;
         void operator=(PA1616 const&)     = delete;
@@ -54,4 +52,7 @@ class PA1616 {
 
         RMC getLocation();
         RMC getLocation(uint8_t tries);
+
+        void powerOn();
+        void powerOff();
 };

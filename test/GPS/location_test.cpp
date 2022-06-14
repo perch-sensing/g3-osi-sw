@@ -31,6 +31,8 @@ int main(int argc, char **argv) {
 
     // Test
     PA1616& gps = PA1616::getInstance();
+    gps.powerOn();
+
     for ( ; number_readings > 0; number_readings--) {
 
         gpio.write(FLAG_PIN, HIGH);

@@ -16,6 +16,8 @@
 
 #include "../GPIOController.hpp"
 
+#include <iostream>
+
 PA1616::PA1616() {
     // Set up GPS pins
     GPIOController& gpio = GPIOController::getInstance();
@@ -58,7 +60,7 @@ PA1616::RMC PA1616::getLocation(uint8_t tries) {
     RMC location;
     
     // Power GPS on
-    powerOn();
+    // powerOn();
 
     // Attempt to get fixed location for TRIES attemps
     GPIOController& gpio = GPIOController::getInstance();
@@ -69,6 +71,9 @@ PA1616::RMC PA1616::getLocation(uint8_t tries) {
         // Get GNRMC command
         do {
             ss = gpio.serialReadLine(GPIOController::GPS);
+
+            // TODO: Debugging, remove
+            std::cout << ss.str() << std::endl;
 
             // Parse command type
             getline(ss, parsed_item, ',');
@@ -105,7 +110,7 @@ PA1616::RMC PA1616::getLocation(uint8_t tries) {
     }
 
     // Power off to save power
-    powerOff();
+    // powerOff();
 
     location.STATUS = "V";
     return location;

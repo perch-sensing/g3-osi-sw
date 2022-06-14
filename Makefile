@@ -3,6 +3,7 @@ BUILD_FLAGS := -Wall -Wextra -Werror
 
 All: SHT30.o PA1616.o LoRa_E5.o
 	@echo "\nAll modules built"
+	g++ -o ./build/perch_sense ./src/perch_sense.cpp ./build/LoRa/LoRa_E5.o ./build/GPS/PA1616.o ./build/GPIOController.o ${LIBS} ${BUILD_FLAGS}
 
 Test: Temperature_Test GPS_Test LoRa_Test
 	@echo "\nAll test built"
@@ -38,6 +39,9 @@ LoRa_Test: LoRa_E5.o GPIOController.o
 TF_Test: GPIOController.o
 	@mkdir -p build/test
 	g++ -o ./build/test/classify_test ./test/ImageClassification/classify_test.cpp ./build/GPIOController.o ${LIBS} ${BUILD_FLAGS}
+
+Main:
+	g++ -o ./build/perch_sense ./src/perch_sense.cpp ./build/LoRa/LoRa_E5.o ./build/GPS/PA1616.o ./build/GPIOController.o ${LIBS} ${BUILD_FLAGS}
 
 clean:
 	@rm -rf build
